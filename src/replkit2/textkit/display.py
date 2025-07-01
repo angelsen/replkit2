@@ -39,12 +39,12 @@ def table(rows: list[list[Any]], headers: list[str] | None = None) -> str:
                 col_widths[i] = max(col_widths[i], len(cell))
 
     # Build table
-    result = []
+    result: list[str] = []
 
     # Headers
     if headers:
-        header_row = []
-        separator_row = []
+        header_row: list[str] = []
+        separator_row: list[str] = []
         for i, header in enumerate(headers):
             header_row.append(header.ljust(col_widths[i]))
             separator_row.append("-" * col_widths[i])
@@ -53,7 +53,7 @@ def table(rows: list[list[Any]], headers: list[str] | None = None) -> str:
 
     # Data rows
     for row in str_rows:
-        formatted_row = []
+        formatted_row: list[str] = []
         for i, cell in enumerate(row):
             if i < len(col_widths):
                 formatted_row.append(cell.ljust(col_widths[i]))
@@ -79,7 +79,7 @@ def box(content: str, title: str | None = None, width: int | None = None) -> str
     inner_width = width - 4  # "| " and " |"
 
     # Wrap lines if needed
-    wrapped_lines = []
+    wrapped_lines: list[str] = []
     for line in lines:
         if len(line) > inner_width:
             wrapped_lines.extend(wrap(line, inner_width))
@@ -101,7 +101,7 @@ def box(content: str, title: str | None = None, width: int | None = None) -> str
         inner_width = box_width - 4
 
     # Build box
-    result = []
+    result: list[str] = []
 
     # Top border
     if title:
@@ -154,7 +154,7 @@ def tree(data: dict[str, Any], _prefix: str = "") -> str:
         |   `-- grandchild2
         `-- child2
     """
-    lines = []
+    lines: list[str] = []
     items = list(data.items())
 
     for i, (key, value) in enumerate(items):
