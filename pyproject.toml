@@ -1,0 +1,35 @@
+[project]
+name = "replkit2"
+version = "0.1.0"
+description = "A minimal Python framework for building stateful REPL applications with ASCII display"
+readme = "README.txt"
+authors = [
+    { name = "Fredrik Angelsen", email = "fredrikangelsen@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+examples = [
+    "psutil>=7.0.0",      # For system monitor example
+]
+api = [
+    "fastapi>=0.115.14",  # For API examples
+    "uvicorn",            # ASGI server for FastAPI
+]
+mcp = [
+    "fastmcp>=2.9.2",     # For MCP integration (future)
+]
+dev = [
+    "ruff",
+    "basedpyright>=1.29.5",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.29.5",
+]
