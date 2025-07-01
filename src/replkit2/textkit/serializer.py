@@ -1,6 +1,6 @@
 """TextSerializer for ReplKit2 integration with Flask-like registration."""
 
-from typing import Any, Callable
+from typing import Any, Callable, override
 
 from ..types import CommandMeta
 from ..serializers import Serializer
@@ -25,7 +25,7 @@ class TextSerializer(Serializer):
 
         return decorator
 
-    # pyright: ignore[reportImplicitOverride]
+    @override
     def serialize(self, data: Any, meta: CommandMeta) -> str:
         """Convert data to text using registered handlers."""
         if not meta.display:

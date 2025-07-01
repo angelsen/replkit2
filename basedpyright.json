@@ -1,0 +1,20 @@
+{
+  "include": ["src", "examples"],
+  "exclude": ["**/__pycache__", "**/.*"],
+  "typeCheckingMode": "standard",
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": false,
+  "reportUnusedImport": true,
+  "reportUnusedFunction": "warning",
+  "reportUnusedVariable": "warning",
+  "reportAny": "warning",
+  "reportUnknownMemberType": "warning",
+  "reportUnknownArgumentType": "warning",
+  "reportUnknownParameterType": "warning",
+  "reportUnknownVariableType": "warning",
+  "reportUntypedFunctionDecorator": "warning",
+  "reportImplicitOverride": "warning",
+  "reportUnannotatedClassAttribute": "warning",
+  "pythonVersion": "3.12",
+  "pythonPlatform": "All"
+}
