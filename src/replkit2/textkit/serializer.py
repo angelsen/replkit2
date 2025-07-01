@@ -27,6 +27,9 @@ class TextSerializer(Serializer):
 
     def serialize(self, data: Any, meta: CommandMeta) -> str:
         """Convert data to text using registered handlers."""
+        if not meta.display:
+            return str(data)
+        
         handler = self._handlers.get(meta.display)
         if handler:
             return handler(data, meta)

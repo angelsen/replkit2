@@ -14,7 +14,7 @@ class App:
     def __init__(self, name: str, serializer: Serializer | None = None):
         self.name = name
         self.serializer = serializer or self._get_default_serializer()
-        self._commands: dict[str, tuple[Callable, CommandMeta]] = {}
+        self._commands: dict[str, tuple[Callable[..., Any], CommandMeta]] = {}
         self._state_instance: Any = None
 
     def _get_default_serializer(self) -> Serializer:
@@ -102,7 +102,7 @@ class App:
             if method.__name__ != name:
                 continue
 
-            def make_wrapper(cmd_name: str, cmd_method: Callable) -> Callable:
+            def make_wrapper(cmd_name: str, cmd_method: Callable[..., Any]) -> Callable[..., Any]:
                 def wrapper(*args, **kwargs):
                     result = self.execute(cmd_name, *args, **kwargs)
                     if isinstance(result, str):
