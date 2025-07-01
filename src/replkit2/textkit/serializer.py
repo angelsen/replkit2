@@ -25,6 +25,7 @@ class TextSerializer(Serializer):
 
         return decorator
 
+    # pyright: ignore[reportImplicitOverride]
     def serialize(self, data: Any, meta: CommandMeta) -> str:
         """Convert data to text using registered handlers."""
         if not meta.display:
@@ -40,7 +41,7 @@ class TextSerializer(Serializer):
         """Register built-in display handlers."""
 
         @self.register("table")
-        def handle_table(data: Any, meta: CommandMeta) -> str:
+        def handle_table(data: Any, meta: CommandMeta) -> str:  # pyright: ignore[reportUnusedFunction]
             headers = meta.display_opts.get("headers")
 
             # Handle list of dicts
@@ -57,13 +58,13 @@ class TextSerializer(Serializer):
             return str(data)
 
         @self.register("box")
-        def handle_box(data: Any, meta: CommandMeta) -> str:
+        def handle_box(data: Any, meta: CommandMeta) -> str:  # pyright: ignore[reportUnusedFunction]
             title = meta.display_opts.get("title")
             width = meta.display_opts.get("width")
             return box(str(data), title, width)
 
         @self.register("list")
-        def handle_list(data: Any, meta: CommandMeta) -> str:
+        def handle_list(data: Any, meta: CommandMeta) -> str:  # pyright: ignore[reportUnusedFunction]
             style = meta.display_opts.get("style", "bullet")
             numbered = meta.display_opts.get("numbered", False)
 
@@ -74,13 +75,13 @@ class TextSerializer(Serializer):
             return str(data)
 
         @self.register("tree")
-        def handle_tree(data: Any, meta: CommandMeta) -> str:
+        def handle_tree(data: Any, _meta: CommandMeta) -> str:  # pyright: ignore[reportUnusedFunction]
             if isinstance(data, dict):
                 return tree(data)
             return str(data)
 
         @self.register("bar_chart")
-        def handle_bar_chart(data: Any, meta: CommandMeta) -> str:
+        def handle_bar_chart(data: Any, meta: CommandMeta) -> str:  # pyright: ignore[reportUnusedFunction]
             width = meta.display_opts.get("width")
             show_values = meta.display_opts.get("show_values", True)
 
@@ -89,7 +90,7 @@ class TextSerializer(Serializer):
             return str(data)
 
         @self.register("progress")
-        def handle_progress(data: Any, meta: CommandMeta) -> str:
+        def handle_progress(data: Any, meta: CommandMeta) -> str:  # pyright: ignore[reportUnusedFunction]
             width = meta.display_opts.get("width")
             show_percentage = meta.display_opts.get("show_percentage", True)
 
