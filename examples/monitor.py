@@ -25,6 +25,9 @@ from replkit2 import create_repl_app, state, command
 class SystemMonitor:
     """System monitoring tool with ASCII visualizations."""
 
+    cpu_history: list[float]
+    start_time: datetime
+
     def __init__(self):
         self.cpu_history = []
         self.start_time = datetime.now()

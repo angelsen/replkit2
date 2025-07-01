@@ -21,6 +21,9 @@ from replkit2 import create_repl_app, state, command
 class TodoApp:
     """A feature-rich todo list manager."""
 
+    todos: list[dict[str, str | bool | datetime]]
+    completed_count: int
+
     def __init__(self):
         self.todos = []
         self.completed_count = 0
