@@ -1,0 +1,118 @@
+# ReplKit2 Guide for LLMs
+
+This guide helps LLMs write effective ReplKit2 applications following Claude 4 best practices.
+
+## Core Principles
+
+### Be Explicit with Display Requirements
+Instead of: "Show todos"
+Use: "@command(display='table', headers=['id', 'task', 'status'])"
+
+### Provide Context for Design Decisions
+Instead of: "Add a command"
+Use: "Add a command that returns structured data for table display, enabling users to see all fields at once"
+
+## Writing Effective Commands
+
+### 1. State Management
+```python
+@state
+class TodoApp:
+    todos: list[dict]  # Be explicit with type annotations
+    
+    def __init__(self):
+        self.todos = []  # Initialize state clearly
+```
+
+### 2. Display Hints
+Always specify display intent:
+```python
+@command(display="table", headers=["id", "task", "done"])
+@command(display="box", title="Summary", width=60)
+@command(display="bar_chart", show_values=True)
+```
+
+### 3. Return Structured Data
+Match data structure to display type:
+- table: List of dicts with consistent keys
+- tree: Nested dict structure
+- bar_chart: Dict with numeric values
+- list: List of strings
+
+## Best Practices
+
+### Leverage Multiple Serializers
+```python
+# Create once, use many ways
+app = create_repl_app("myapp", MyCommands)
+json_api = app.with_serializer(JSONSerializer())
+text_cli = app.with_serializer(TextSerializer())
+```
+
+### Write Comprehensive Examples
+Include multiple display types and real-world patterns:
+```python
+@command(display="table")
+def list_items(self):
+    """Show all items in a formatted table."""
+    return [{"id": i, "name": item} for i, item in enumerate(self.items)]
+
+@command(display="tree")
+def organize(self):
+    """Display hierarchical organization."""
+    return {"high": [...], "medium": [...], "low": [...]}
+```
+
+### Error Handling
+Be explicit about edge cases:
+```python
+@command
+def get_item(self, id: int):
+    if id < 0 or id >= len(self.items):
+        return f"Error: Invalid ID {id}"
+    return self.items[id]
+```
+
+## Common Patterns
+
+### Progress Tracking
+```python
+@command(display="progress", show_percentage=True)
+def completion(self):
+    done = sum(1 for t in self.todos if t["done"])
+    return {"value": done, "total": len(self.todos)}
+```
+
+### Multi-View Reports
+```python
+@command
+def report(self):
+    return [
+        ("Summary", self.stats(), {"display": "box"}),
+        ("Tasks", self.list_todos(), {"display": "table"}),
+        ("Progress", self.completion(), {"display": "progress"})
+    ]
+```
+
+### Interactive Features
+Encourage rich interactions:
+- Add multiple related commands
+- Provide different views of same data
+- Include statistics and summaries
+- Support filtering and organization
+
+## Testing Guidelines
+
+Write general-purpose solutions:
+- Handle edge cases (empty lists, invalid inputs)
+- Don't hard-code test values
+- Implement actual business logic
+- Make commands reusable
+
+## Output Quality
+
+For impressive demos:
+- Use multiple display types in one app
+- Add thoughtful formatting options
+- Include help text and examples
+- Provide comprehensive functionality
