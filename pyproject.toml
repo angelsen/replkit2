@@ -33,3 +33,6 @@ build-backend = "hatchling.build"
 dev = [
     "basedpyright>=1.29.5",
 ]
+
+[tool.ruff]
+line-length = 120

@@ -4,9 +4,7 @@ from .config import config
 from .icons import ICONS
 
 
-def bar_chart(
-    data: dict[str, float], width: int | None = None, show_values: bool = True
-) -> str:
+def bar_chart(data: dict[str, float], width: int | None = None, show_values: bool = True) -> str:
     """
     Create a horizontal bar chart.
 

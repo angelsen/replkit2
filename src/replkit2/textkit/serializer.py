@@ -30,7 +30,7 @@ class TextSerializer(Serializer):
         """Convert data to text using registered handlers."""
         if not meta.display:
             return str(data)
-        
+
         handler = self._handlers.get(meta.display)
         if handler:
             return handler(data, meta)
@@ -96,9 +96,7 @@ class TextSerializer(Serializer):
 
             if isinstance(data, dict) and "value" in data and "total" in data:
                 label = data.get("label", "")
-                return progress(
-                    data["value"], data["total"], width, label, show_percentage
-                )
+                return progress(data["value"], data["total"], width, label, show_percentage)
             elif isinstance(data, (int, float)):
                 return progress(data, width=width, show_percentage=show_percentage)
             return str(data)

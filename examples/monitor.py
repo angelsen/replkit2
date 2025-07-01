@@ -132,9 +132,7 @@ class SystemMonitor:
         """Show top processes by CPU usage."""
         processes = []
 
-        for proc in psutil.process_iter(
-            ["pid", "name", "cpu_percent", "memory_percent", "status"]
-        ):
+        for proc in psutil.process_iter(["pid", "name", "cpu_percent", "memory_percent", "status"]):
             try:
                 info = proc.info
                 if info["cpu_percent"] is not None:
@@ -174,9 +172,7 @@ class SystemMonitor:
             try:
                 usage = psutil.disk_usage(partition.mountpoint)
                 if usage.percent > 90:
-                    alerts.append(
-                        f"Low disk space on {partition.mountpoint}: {usage.percent:.1f}% used"
-                    )
+                    alerts.append(f"Low disk space on {partition.mountpoint}: {usage.percent:.1f}% used")
             except Exception:
                 pass
 

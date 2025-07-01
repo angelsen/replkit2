@@ -2,7 +2,7 @@ from typing import Any, Callable, TypeVar
 
 from .types import CommandMeta
 
-T = TypeVar('T', bound=Callable[..., Any])
+T = TypeVar("T", bound=Callable[..., Any])
 
 
 def command(
@@ -23,11 +23,9 @@ def command(
     """
 
     def decorator(f: T) -> T:
-        meta = CommandMeta(
-            display=display, display_opts=display_opts, aliases=aliases or []
-        )
-        setattr(f, '__command_meta__', meta)
-        setattr(f, '__is_command__', True)
+        meta = CommandMeta(display=display, display_opts=display_opts, aliases=aliases or [])
+        setattr(f, "__command_meta__", meta)
+        setattr(f, "__is_command__", True)
         return f
 
     # Handle both @command and @command(...) usage
@@ -41,5 +39,5 @@ def command(
 
 def state(cls: type) -> type:
     """Mark class as stateful command container."""
-    setattr(cls, '__is_state__', True)
+    setattr(cls, "__is_state__", True)
     return cls

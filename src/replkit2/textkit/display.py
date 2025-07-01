@@ -92,9 +92,7 @@ def box(content: str, title: str | None = None, width: int | None = None) -> str
         inner_width = box_width - 4
     else:
         # Find actual max width
-        max_line_width = (
-            max(len(line) for line in wrapped_lines) if wrapped_lines else 0
-        )
+        max_line_width = max(len(line) for line in wrapped_lines) if wrapped_lines else 0
         if title:
             max_line_width = max(max_line_width, len(title) + 2)
         box_width = max_line_width + 4
@@ -124,9 +122,7 @@ def box(content: str, title: str | None = None, width: int | None = None) -> str
     return "\n".join(result)
 
 
-def list_display(
-    items: list[str], style: str = "bullet", numbered: bool = False
-) -> str:
+def list_display(items: list[str], style: str = "bullet", numbered: bool = False) -> str:
     """
     Format items as a list.
 

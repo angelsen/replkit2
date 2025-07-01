@@ -37,9 +37,7 @@ class App:
         # Extract @command methods
         for name, method in inspect.getmembers(self._state_instance):
             # Check if it's a bound method with the command decorator
-            if hasattr(method, "__func__") and hasattr(
-                method.__func__, "__is_command__"
-            ):
+            if hasattr(method, "__func__") and hasattr(method.__func__, "__is_command__"):
                 # Get metadata from the underlying function
                 meta = getattr(method.__func__, "__command_meta__", CommandMeta())
                 self._commands[name] = (method, meta)
@@ -59,11 +57,7 @@ class App:
 
     def list_commands(self) -> list[str]:
         """Get list of available commands (excluding aliases)."""
-        return [
-            name
-            for name, (method, _) in self._commands.items()
-            if method.__name__ == name
-        ]
+        return [name for name, (method, _) in self._commands.items() if method.__name__ == name]
 
     def with_serializer(self, serializer: Serializer) -> "App":
         """

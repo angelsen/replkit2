@@ -60,17 +60,13 @@ def render_markdown(md_path: str) -> str:
         elif line.startswith("## "):
             # H2 - Full width box with hr
             title = line[3:].strip()
-            sections.append(
-                compose(box(title, title="H2", width=config.width), hr("-"), spacing=0)
-            )
+            sections.append(compose(box(title, title="H2", width=config.width), hr("-"), spacing=0))
             i += 1
 
         elif line.startswith("### "):
             # H3 - Full width box with hr
             title = line[4:].strip()
-            sections.append(
-                compose(box(title, title="H3", width=config.width), hr("-"), spacing=0)
-            )
+            sections.append(compose(box(title, title="H3", width=config.width), hr("-"), spacing=0))
             i += 1
 
         # Horizontal rule
@@ -93,12 +89,7 @@ def render_markdown(md_path: str) -> str:
             i += 1
 
         # Tables
-        elif (
-            "|" in line
-            and i + 1 < len(lines)
-            and "|" in lines[i + 1]
-            and "-" in lines[i + 1]
-        ):
+        elif "|" in line and i + 1 < len(lines) and "|" in lines[i + 1] and "-" in lines[i + 1]:
             # Parse table
             headers = [cell.strip() for cell in line.split("|")[1:-1]]
             i += 2  # Skip separator
@@ -137,11 +128,7 @@ def render_markdown(md_path: str) -> str:
         elif line.strip():
             # Collect paragraph lines
             para_lines = []
-            while (
-                i < len(lines)
-                and lines[i].strip()
-                and not lines[i].startswith(("#", "-", "*", "```", "|"))
-            ):
+            while i < len(lines) and lines[i].strip() and not lines[i].startswith(("#", "-", "*", "```", "|")):
                 para_lines.append(lines[i].strip())
                 i += 1
 

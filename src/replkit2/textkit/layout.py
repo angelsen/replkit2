@@ -10,9 +10,7 @@ def hr(char: str | None = None, width: int | None = None) -> str:
     return char * width
 
 
-def columns(
-    items: list[str], cols: int = 2, gap: int = 2, width: int | None = None
-) -> str:
+def columns(items: list[str], cols: int = 2, gap: int = 2, width: int | None = None) -> str:
     """
     Arrange items in columns.
 
