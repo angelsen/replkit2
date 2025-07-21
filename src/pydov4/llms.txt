@@ -1,0 +1,295 @@
+# PyDoV4 Guide for LLMs
+
+This guide helps LLMs write effective PyDoV4 commands using ReplKit2 v3 patterns with pure Python data returns and native TextKit displays.
+
+## Core Principles
+
+### Return Pure Python Data
+Instead of: "Return LSP objects or formatted strings"
+Use: "Return clean dicts/lists/strings that serializers can format"
+
+### Use Native TextKit Displays
+Instead of: "Create custom display for every command"
+Use: "Use box/table/tree/list displays, only create custom when adding real value"
+
+### Be Explicit with Error Handling
+Instead of: "Return error messages in different formats"
+Use: "Return empty_table() for tables, empty_tree() for trees, or error dict for custom displays"
+
+## Writing PyDoV4 Commands
+
+### 1. Always Return Data, Not Strings
+```python
+# BAD - Returns formatted string or raw LSP objects
+@app.command
+def diagnostics(state):
+    return "Error on line 5: unused import"
+
+# GOOD - Returns clean Python data for table display
+@app.command(display="table", headers=["File", "Line", "Severity", "Message"])
+def diagnostics(state, severity=None):
+    return [
+        {"File": "app.py", "Line": "5", "Severity": "error", "Message": "unused import"}
+    ]
+```
+
+### 2. Check Server Capabilities
+```python
+@app.command(display="box")
+def hover(state, line: int, col: int):
+    """Get hover info with capability check."""
+    if not state.client.server_capabilities.hover_provider:
+        return "Server does not support hover"
+    
+    # Return data for box display
+    result = state.client.hover(state.current_file, line, col)
+    return result.contents if result else "No hover information"
+```
+
+### 3. Use Appropriate Display Types
+- **table**: For structured data (diagnostics, symbols, files)
+- **box**: For status messages, previews, single results  
+- **tree**: For hierarchical data (outline, call hierarchy)
+- **list**: For simple selections or file lists
+- **custom:code_diagnostics**: Only for showing code with inline diagnostics
+
+### 4. Handle Async Operations
+```python
+@app.command
+def complete(state, line: int, col: int):
+    """Get completions using thread-safe async."""
+    # This runs in the LSP client thread
+    completions = state.client.completion(state.current_file, line, col)
+    
+    # Return data for table display
+    return [
+        {"text": c.label, "kind": c.kind, "detail": c.detail}
+        for c in completions.items
+    ]
+```
+
+## Best Practices
+
+### ASCII-Only Output
+```python
+# BAD - Uses emojis
+return "✅ Connected to server"
+
+# GOOD - Uses ASCII indicators
+return "[OK] Connected to server"
+```
+
+### Use Constants for Consistency
+```python
+from ..constants import Severity, empty_table
+
+@app.command(display="table", headers=["File", "Line", "Severity"])
+def diagnostics(state):
+    if not state.client.client:
+        return empty_table()
+    
+    # Use Severity enum instead of magic numbers
+    severity = Severity.from_lsp(diag.severity)
+    return [{
+        "File": path.name,
+        "Line": str(diag.range.start.line + 1),
+        "Severity": severity.value  # "error", "warning", etc.
+    }]
+```
+
+### Error Handling
+```python
+from ..constants import empty_table, empty_tree
+
+@app.command(display="table", headers=["File", "Line", "Text"])
+def definition(state, line: int, col: int):
+    if not state.current_file:
+        return empty_table()  # Use constants for consistency
+    
+    try:
+        locations = state.client.definition(state.current_file, line, col)
+        if not locations:
+            return empty_table()
+        
+        # Return clean data, not LSP objects
+        return [{"File": path.name, "Line": str(loc.range.start.line + 1), "Text": "..."} 
+                for loc in locations]
+    except:
+        return empty_table()
+```
+
+## Common Patterns
+
+### File Operations
+```python
+@app.command(display="box", title="File Opened")
+def open(state, path: str, goto_line: Optional[int] = None):
+    """Open file with optional line jump."""
+    # Validate path
+    file_path = Path(path)
+    if not file_path.exists():
+        return f"Error: File not found: {path}"
+    
+    # Open in LSP
+    uri = state.client.open_document(file_path)
+    state.current_file = uri
+    state.open_files[uri] = file_path
+    
+    # Return summary for box display
+    lines = file_path.read_text().splitlines()
+    return f"Opened: {file_path.name}\nPath: {file_path}\nLines: {len(lines)}"
+```
+
+### State Management
+```python
+# Commands receive state as first parameter
+@app.command
+def current_file_info(state):
+    """Show info about current file."""
+    if not state.current_file:
+        return "No file open"
+    
+    path = state.open_files.get(state.current_file)
+    return f"Current file: {path.name}"
+```
+
+### Server-Specific Handling
+```python
+@app.command
+def format(state):
+    """Format with server-specific handling."""
+    server_name = state.client.server_info.get("name", "").lower()
+    if "ruff" in server_name:
+        # Ruff-specific formatting
+        return format_with_ruff(state)
+    else:
+        # Generic LSP formatting
+        return format_generic(state)
+```
+
+## Testing Guidelines
+
+### Cover Multiple Servers
+```python
+# Test commands with different servers
+# basedpyright - Full features
+# ruff - Formatting and diagnostics only  
+# pyright - No formatting
+# pylsp - Different capability structure
+```
+
+### Handle Missing Capabilities
+```python
+# Always check before using features
+if not hasattr(state.client.server_capabilities, 'rename_provider'):
+    return "Rename not supported by this server"
+```
+
+### Test Edge Cases
+- Empty files
+- Files with no diagnostics
+- Disconnected state
+- Invalid line numbers
+- Large files (>1000 lines)
+
+## Command Implementation Checklist
+
+When implementing a new PyDoV4 command:
+
+1. [ ] Use @app.command decorator with display type (box/table/tree/list)
+2. [ ] First parameter must be `state`
+3. [ ] Return pure Python data structures, not LSP objects
+4. [ ] Import and use empty_table()/empty_tree() for error cases
+5. [ ] Use Severity enum instead of numeric severity values
+6. [ ] Check server capabilities before operations
+7. [ ] Use ASCII-only indicators ([OK], [X], [!])
+8. [ ] Let TextKit handle all formatting (no manual padding)
+9. [ ] Test with multiple language servers (basedpyright, ruff)
+10. [ ] Add to appropriate module in commands/
+
+## Example: Adding Completion Support
+
+```python
+# In commands/navigation.py
+from ..app import app
+from ..constants import empty_table
+
+@app.command(display="table", headers=["Text", "Kind", "Detail", "Doc"])
+def complete(state, line: int, col: int = None, prefix: str = ""):
+    """Get code completions at position.
+    
+    Args:
+        line: Line number (1-indexed)
+        col: Column (defaults to end of line)
+        prefix: Optional prefix filter
+        
+    Returns:
+        List of completions with text, kind, detail, and documentation
+    """
+    if not state.current_file:
+        return empty_table()
+        
+    # Check capability
+    if not state.client.server_capabilities.completion_provider:
+        return empty_table()
+    
+    # Default column to end of line
+    if col is None:
+        path = state.open_files[state.current_file]
+        lines = path.read_text().splitlines()
+        if 1 <= line <= len(lines):
+            col = len(lines[line - 1]) + 1
+        else:
+            col = 1
+    
+    try:
+        # Get completions from server
+        result = state.client.completion(state.current_file, line, col)
+        
+        if not result or not result.items:
+            return empty_table()
+        
+        # Format for table display
+        completions = []
+        for item in result.items[:20]:  # Limit to 20 items
+            # Extract kind name
+            kind = "unknown"
+            if hasattr(item.kind, 'name'):
+                kind = item.kind.name.lower()
+            elif isinstance(item.kind, int):
+                # Map CompletionItemKind enum
+                kind_map = {
+                    1: "text", 2: "method", 3: "function",
+                    4: "constructor", 5: "field", 6: "variable",
+                    7: "class", 8: "interface", 9: "module"
+                }
+                kind = kind_map.get(item.kind, "other")
+            
+            # Get documentation
+            doc = ""
+            if item.documentation:
+                if hasattr(item.documentation, 'value'):
+                    doc = item.documentation.value[:40] + "..."
+                else:
+                    doc = str(item.documentation)[:40] + "..."
+            
+            completions.append({
+                "Text": item.label,
+                "Kind": kind,
+                "Detail": item.detail or "-",
+                "Doc": doc or "-"
+            })
+        
+        return completions
+        
+    except Exception:
+        return empty_table()
+```
+
+This example demonstrates:
+- Pure Python data returns (no LSP objects)
+- Consistent use of empty_table() for errors
+- Capability checking before operations
+- Capitalized header names for consistency
+- Data truncation for display
+- Clean dict structure matching headers

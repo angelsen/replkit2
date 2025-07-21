@@ -11,14 +11,14 @@ dependencies = []
 
 [project.optional-dependencies]
 examples = [
-    "psutil>=7.0.0",      # For system monitor example
+    "psutil>=7.0.0",
 ]
 api = [
-    "fastapi>=0.115.14",  # For API examples
-    "uvicorn",            # ASGI server for FastAPI
+    "fastapi>=0.115.14",
+    "uvicorn",
 ]
 mcp = [
-    "fastmcp>=2.9.2",     # For MCP integration (future)
+    "fastmcp>=2.9.2",
 ]
 dev = [
     "ruff",
@@ -26,8 +26,11 @@ dev = [
 ]
 lsp = [
     "pygls>=1.3.1",
-    "nest-asyncio>=1.6.0",  # For handling nested event loops in REPL
+    "nest-asyncio>=1.6.0",
 ]
+
+[project.scripts]
+pydo = "pydov4:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -40,9 +43,12 @@ dev = [
 
 [tool.ruff]
 line-length = 120
+include = ["src/**/*.py", "examples/**/*.py", "pyproject.toml"]
+exclude = ["**/_archive"]
 
 [tool.basedpyright]
 typeCheckingMode = "standard"
 pythonVersion = "3.12"
 pythonPlatform = "Linux"
-include = ["src/replkit2"]
+include = ["src/**/*.py"]
+exclude = ["**/_archive"]
