@@ -17,5 +17,5 @@ resources/
 bugs/
 tasks/
 .context-search.json
-src/pydov4/
+# src/pydov4/
 _archive/
