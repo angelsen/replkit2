@@ -186,6 +186,11 @@ class App:
                 enabled=config.get("enabled", True),
             )(wrapper)
 
+            # Generate stub if requested and URI has parameters
+            stub_config = config.get("stub")
+            if stub_config and "{" in uri:
+                self._register_stub_resource(func, uri, stub_config)
+
         for name, (func, meta) in self._mcp_components["prompts"].items():
             config = {**self.fastmcp_defaults, **meta.fastmcp}
             wrapper = self._create_stateful_wrapper(func)
@@ -262,3 +267,42 @@ class App:
             commands.append({"Command": signature, "Description": description})
 
         return sorted(commands, key=lambda x: x["Command"])
+
+    def _register_stub_resource(self, func, uri_template: str, stub_config: bool | dict[str, Any]):
+        """Register a stub resource for a template resource."""
+        import re
+
+        # Convert {param} to :param in URI
+        stub_uri = re.sub(r"\{(\w+)\}", r":\1", uri_template)
+
+        # Extract first line of docstring for description
+        description = ""
+        if func.__doc__:
+            description = func.__doc__.strip().split("\n")[0]
+
+        # Determine response data
+        if isinstance(stub_config, dict) and "response" in stub_config:
+            # User provided custom response
+            response_data = stub_config["response"]
+        else:
+            # Minimal default response
+            response_data = {
+                "description": description,
+                "template": uri_template,
+            }
+
+        # Create stub function
+        async def stub_func():
+            return response_data
+
+        # Set function metadata
+        stub_func.__name__ = f"{func.__name__}_stub"
+        stub_func.__doc__ = f"Example usage for {uri_template}"
+
+        # Register the stub as a regular resource
+        if self._fastmcp is not None:
+            self._fastmcp.resource(
+                uri=stub_uri,
+                name=f"{func.__name__}_example",
+                description=f"Example usage for {description}" if description else f"Example usage for {uri_template}",
+            )(stub_func)

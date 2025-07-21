@@ -49,7 +49,18 @@ def note_summary(state):
     }
 
 
-@app.command(fastmcp={"type": "resource", "uri": "noteapp://note/{id}", "mime_type": "application/json"})
+@app.command(fastmcp={
+    "type": "resource", 
+    "uri": "noteapp://note/{id}", 
+    "mime_type": "application/json",
+    "stub": {
+        "response": {
+            "example": "noteapp://note/123",
+            "description": "Replace :id with a note ID",
+            "usage": "Use list_notes to find available note IDs"
+        }
+    }
+})
 def get_note(state, id: int):
     """Get a specific note by ID."""
     for note in state.notes:

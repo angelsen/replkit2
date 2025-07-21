@@ -166,3 +166,42 @@ def dashboard(state):
 - `{"type": "prompt"}`: Prompt templates
 - `{"enabled": False}`: Exclude from MCP
 - `{"uri": "custom://path"}`: Override auto-generated URI
+- `{"stub": True}`: Generate stub resource for template URIs
+- `{"stub": {"response": {...}}}`: Custom stub response
+
+## Stub Resources for MCP Clients
+
+Some MCP clients don't support resource templates. Use stubs to provide examples:
+
+```python
+# Basic stub - shows template and description
+@app.command(fastmcp={"type": "resource", "stub": True})
+def get_note(state, id: int):
+    """Get note by ID."""
+    return state.notes[id]
+# Creates: notes://get_note/{id} (template)
+# Creates: notes://get_note/:id (stub showing usage)
+
+# Custom stub response
+@app.command(fastmcp={
+    "type": "resource",
+    "stub": {
+        "response": {
+            "example": "notes://get_note/123",
+            "usage": "Use list_notes to find IDs",
+            "hint": "IDs are integers from 1-1000"
+        }
+    }
+})
+def get_note(state, id: int):
+    """Get note by ID."""
+    return state.notes[id]
+
+# Disable stub for specific resource
+@app.command(fastmcp={"type": "resource", "stub": False})
+def search(state, query: str):
+    """Search notes."""
+    return results
+```
+
+Stubs appear as regular resources with `:param` syntax and return help info when called.

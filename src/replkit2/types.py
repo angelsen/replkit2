@@ -16,6 +16,7 @@ class FastMCPResource(TypedDict):
     description: NotRequired[str]
     mime_type: NotRequired[str]
     enabled: NotRequired[bool]
+    stub: NotRequired[bool | dict[str, Any]]
 
 
 class FastMCPPrompt(TypedDict):
