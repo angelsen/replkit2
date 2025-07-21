@@ -1,164 +1,168 @@
-# ReplKit2 Guide for LLMs
+# ReplKit2 + TextKit + FastMCP Guide
 
-This guide helps LLMs write effective ReplKit2 applications following Claude 4 best practices.
+Build stateful REPL apps with rich ASCII output and MCP integration.
 
-## Core Principles
+## Basic App Structure
 
-### Be Explicit with Display Requirements
-Instead of: "Show todos"
-Use: "@command(display='table', headers=['id', 'task', 'status'])"
-
-### Provide Context for Design Decisions
-Instead of: "Add a command"
-Use: "Add a command that returns structured data for table display, enabling users to see all fields at once"
-
-## Writing Effective Commands
-
-### 1. State Management
 ```python
-from dataclasses import dataclass, field
 from replkit2 import App
+from dataclasses import dataclass, field
 
 @dataclass
-class TodoState:
-    todos: list[dict] = field(default_factory=list)  # Be explicit with type annotations
-    next_id: int = 1
+class AppState:
+    items: list[dict] = field(default_factory=list)
+    counter: int = 0
 
-# Create app with state
-app = App("todo", TodoState)
+app = App("myapp", AppState)
 ```
 
-### 2. Display Hints
-Always specify display intent with Flask-style decorators:
+## Commands with Display Types
+
 ```python
-@app.command(display="table", headers=["id", "task", "done"])
-def list_todos(state):
-    return state.todos
-
-@app.command(display="box", title="Summary", width=60)
-def summary(state):
-    return f"Total: {len(state.todos)} tasks"
-
-@app.command(display="bar_chart", show_values=True)
-def priority_chart(state):
-    return {"high": 5, "medium": 3, "low": 2}
-```
-
-### 3. Return Structured Data
-Match data structure to display type:
-- table: List of dicts with consistent keys
-- tree: Nested dict structure
-- bar_chart: Dict with numeric values
-- list: List of strings
-
-## Best Practices
-
-### Leverage Multiple Serializers
-```python
-from replkit2 import App, JSONSerializer, TextSerializer
-
-# Create once, use many ways
-app = App("myapp", MyState)
-json_api = app.using(JSONSerializer())
-text_cli = app.using(TextSerializer())
-```
-
-### Write Comprehensive Examples
-Include multiple display types and real-world patterns:
-```python
-@app.command(display="table")
+# Table display
+@app.command(display="table", headers=["ID", "Name", "Status"])
 def list_items(state):
-    """Show all items in a formatted table."""
-    return [{"id": i, "name": item} for i, item in enumerate(state.items)]
+    return [{"ID": i, "Name": item["name"], "Status": item["status"]} 
+            for i, item in enumerate(state.items)]
 
+# Box display
+@app.command(display="box", title="Summary")
+def status(state):
+    return f"Total items: {len(state.items)}\nLast update: {state.counter}"
+
+# Tree display
 @app.command(display="tree")
-def organize(state):
-    """Display hierarchical organization."""
-    return {"high": [...], "medium": [...], "low": [...]}
+def hierarchy(state):
+    return {
+        "active": [i for i in state.items if i["status"] == "active"],
+        "pending": [i for i in state.items if i["status"] == "pending"]
+    }
+
+# Progress display
+@app.command(display="progress", show_percentage=True)
+def completion(state):
+    done = sum(1 for i in state.items if i["status"] == "done")
+    return {"value": done, "total": len(state.items)}
 ```
 
-### Error Handling
-Be explicit about edge cases:
+## FastMCP Integration
+
 ```python
-@app.command()
-def get_item(state, id: int):
-    if id < 0 or id >= len(state.items):
-        return f"Error: Invalid ID {id}"
-    return state.items[id]
+from replkit2 import App, FastMCPTool, FastMCPResource
+
+# App with MCP configuration
+app = App("notes", 
+    NotesState,
+    uri_scheme="notes",  # URIs like notes://command
+    fastmcp={"tags": {"productivity"}}  # Default tags
+)
+
+# MCP Tool
+@app.command(fastmcp={"type": "tool"})
+def add_note(state, text: str, priority: str = "normal"):
+    """Add a new note."""
+    note = {"id": state.next_id, "text": text, "priority": priority}
+    state.notes.append(note)
+    state.next_id += 1
+    return f"Added note #{note['id']}"
+
+# MCP Resource (simple URI)
+@app.command(fastmcp={"type": "resource", "mime_type": "application/json"})
+def summary(state):
+    """Get notes summary."""
+    return {"total": len(state.notes), "next_id": state.next_id}
+
+# MCP Resource (URI template auto-generated: notes://get_note/{id})
+@app.command(fastmcp={"type": "resource"})
+def get_note(state, id: int):
+    """Get note by ID."""
+    return next((n for n in state.notes if n["id"] == id), None)
+
+# MCP Prompt
+@app.command(fastmcp={"type": "prompt"})
+def brainstorm(state, topic: str = None):
+    """Generate brainstorming prompt."""
+    context = "\n".join(n["text"] for n in state.notes[-5:])
+    return f"Based on: {topic or 'recent notes'}\n{context}\nSuggest 3 ideas:"
+
+# Not exposed to MCP
+@app.command(fastmcp={"enabled": False})
+def debug(state):
+    return vars(state)
+```
+
+## Running the App
+
+```python
+if __name__ == "__main__":
+    import sys
+    if "--mcp" in sys.argv:
+        app.mcp.run()  # MCP server mode
+    else:
+        app.run(title="My App")  # REPL mode
+```
+
+## Type-Safe MCP Config
+
+```python
+# Full IDE support with typed configs
+@app.command(
+    display="table",
+    fastmcp={
+        "type": "tool",
+        "tags": {"write", "important"},
+        "description": "Override the docstring"
+    }
+)
+def important_action(state, data: str):
+    """This docstring is overridden by fastmcp.description."""
+    return process(data)
 ```
 
 ## Custom Display Components
 
-Register custom display handlers for complex layouts:
 ```python
-@app.serializer.register("report")
-def handle_report(data, meta):
-    """Custom multi-section report display."""
-    from replkit2.textkit import compose, box
-    sections = []
-    for title, section_data, opts in data:
-        section_meta = CommandMeta(display=opts.get("display"), display_opts=opts)
-        serialized = app.serializer.serialize(section_data, section_meta)
-        sections.append(box(serialized, title=title))
-    return compose(*sections, spacing=1)
+# Register custom display type
+@app.serializer.register("dashboard")
+def dashboard_display(data, meta):
+    from replkit2.textkit import compose, box, table
+    return compose(
+        box(data["summary"], title="Overview"),
+        table(data["items"], headers=["ID", "Status"]),
+        spacing=1
+    )
 
-@app.command(display="report")
-def report(state):
-    return [
-        ("Stats", get_stats(state), {"display": "table"}),
-        ("Items", get_items(state), {"display": "list"}),
-        ("Tree", get_tree(state), {"display": "tree"})
-    ]
+# Use custom display
+@app.command(display="dashboard")
+def dashboard(state):
+    return {
+        "summary": f"Active: {len(state.items)}",
+        "items": [{"ID": i, "Status": item["status"]} 
+                  for i, item in enumerate(state.items)]
+    }
 ```
 
-## Common Patterns
+## Key Patterns
 
-### Progress Tracking
-```python
-@app.command(display="progress", show_percentage=True)
-def completion(state):
-    done = sum(1 for t in state.todos if t["done"])
-    return {"value": done, "total": len(state.todos)}
-```
+1. **State**: First parameter of every command
+2. **Display**: Return data matching display type (list of dicts for tables)
+3. **FastMCP**: Dict with "type" field minimum, inherits app defaults
+4. **URIs**: Auto-generated from function signature and parameters
+5. **Dual Mode**: Same app works as REPL and MCP server
 
-### Multi-View Reports
-```python
-@app.command()
-def report(state):
-    return [
-        ("Summary", state.get_summary(), {"display": "box"}),
-        ("Tasks", state.todos, {"display": "table"}),
-        ("Progress", {"value": 5, "total": 10}, {"display": "progress"})
-    ]
-```
+## Display Type Reference
 
-### Interactive Features
-Encourage rich interactions:
-- Add multiple related commands
-- Provide different views of same data
-- Include statistics and summaries
-- Support filtering and organization
+- `table`: List of dicts → formatted table
+- `box`: Any data → bordered box
+- `tree`: Nested dict → hierarchical view
+- `list`: List → bullet list
+- `bar_chart`: Dict with numbers → horizontal bars
+- `progress`: {"value": n, "total": m} → progress bar
 
-## Testing Guidelines
+## FastMCP Type Reference
 
-Write general-purpose solutions:
-- Handle edge cases (empty lists, invalid inputs)
-- Don't hard-code test values
-- Implement actual business logic
-- Make commands reusable
-
-## Running Applications
-
-```python
-if __name__ == "__main__":
-    app.run(title="My Application Name")
-```
-
-## Output Quality
-
-For impressive demos:
-- Use multiple display types in one app
-- Add thoughtful formatting options
-- help() command is auto-generated
-- Professional banner with app.run(title="...")
-- Provide comprehensive functionality
+- `{"type": "tool"}`: Callable actions
+- `{"type": "resource"}`: Readable data (GET-like)
+- `{"type": "prompt"}`: Prompt templates
+- `{"enabled": False}`: Exclude from MCP
+- `{"uri": "custom://path"}`: Override auto-generated URI

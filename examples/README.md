@@ -1,146 +1,146 @@
 # ReplKit2 Examples
 
-This directory contains examples demonstrating the Flask-style API introduced in ReplKit2 v2.0.
+Flask-style REPL applications with rich ASCII output and MCP integration.
 
 ## Quick Start
 
-All examples use the modern Flask-style pattern:
+```bash
+# Install
+uv add replkit2
 
+# Run examples
+uv run python examples/todo.py
+uv run python examples/monitor.py
+uv run python examples/notes_mcp.py
+
+# Run with MCP
+uv run python examples/notes_mcp.py --mcp
+```
+
+## Core Examples
+
+### todo.py - Todo List Manager
+Full-featured task management with multiple views:
+- Table view for task lists
+- Tree view for categorization
+- Progress bars for completion tracking
+- Custom multi-section reports
+- State persistence between commands
+
+Key patterns: state management, display types, custom display handlers
+
+### monitor.py - System Monitor
+Real-time system monitoring dashboard:
+- CPU/Memory/Disk usage with progress bars
+- Network stats in tables
+- Process list with sorting
+- Bar charts for resource visualization
+
+Key patterns: external data integration, real-time updates, charts
+
+### notes_mcp.py - FastMCP Integration Demo
+Note-taking app exposing MCP tools, resources, and prompts:
+- Tools: `add_note`, `list_notes`
+- Resources: `note_summary`, `get_note/{id}` 
+- Prompts: `brainstorm_prompt`
+- Dual-mode: REPL or MCP server
+
+Key patterns: FastMCP configuration, URI templates, typed configs
+
+### todo_api.py - REST API Integration
+Same todo app exposed as FastAPI:
+- Shared state between REPL and API
+- JSON serialization for API responses
+- Swagger UI at `/docs`
+- Demonstrates `app.using(JSONSerializer())`
+
+Run: `uv run --extra api uvicorn examples.todo_api:app`
+
+## Command Patterns
+
+### Basic Command
 ```python
-from replkit2 import App
-
-# Create app with state
-app = App("myapp", MyState)
-
-# Define commands with decorators
 @app.command()
 def hello(state, name: str = "World"):
     return f"Hello, {name}!"
+```
 
-# Run the REPL with a banner
+### Table Display
+```python
+@app.command(display="table", headers=["ID", "Task", "Done"])
+def list_tasks(state):
+    return [{"ID": t.id, "Task": t.text, "Done": "✓" if t.done else "✗"} 
+            for t in state.tasks]
+```
+
+### FastMCP Tool
+```python
+@app.command(fastmcp={"type": "tool", "tags": {"productivity"}})
+def add_task(state, text: str):
+    task = state.add_task(text)
+    return f"Added task #{task.id}"
+```
+
+### FastMCP Resource
+```python
+@app.command(fastmcp={"type": "resource", "mime_type": "application/json"})
+def task_stats(state):
+    # Auto-generates URI: app://task_stats
+    return {"total": len(state.tasks), "done": sum(1 for t in state.tasks if t.done)}
+```
+
+## Running Modes
+
+### REPL Mode (Default)
+```python
 app.run(title="My Application")
 ```
+- Interactive command prompt
+- Auto-generated help()
+- Pretty-printed output
 
-## Examples
-
-### todo.py - Todo List Manager
-A full-featured todo application demonstrating:
-- State management with dataclasses
-- Multiple display types (table, box, tree, list)
-- Command parameters and validation
-- Custom display handler for multi-section reports
-- Auto-generated help() command
-
-```bash
-uv run python examples/todo.py
-```
-
-### monitor.py - System Monitor
-Real-time system monitoring showing:
-- CPU, memory, disk, and network stats
-- Progress bars and charts
-- Table formatting for processes
-- Integration with psutil
-
-```bash
-uv run python examples/monitor.py
-```
-
-### todo_api.py - FastAPI Integration
-The same todo app exposed as a REST API:
-- Shared state between REPL and API
-- Different serializers for different outputs
-- Pydantic models for validation
-- Auto-generated API documentation
-
-```bash
-uv run --extra api uvicorn examples.todo_api:app --reload
-```
-
-### readme.py - Markdown Renderer
-A standalone utility showing TextKit's display capabilities:
-- No REPL functionality, just rendering
-- Converts markdown to ASCII art
-- Demonstrates box, table, and text formatting
-
-```bash
-uv run python examples/readme.py
-```
-
-## Key Concepts
-
-### Flask-style Commands
-Commands are defined as functions decorated with `@app.command()`:
-
+### MCP Server Mode
 ```python
-@app.command(display="table", headers=["ID", "Name", "Status"])
-def list_items(state):
-    return [{"ID": 1, "Name": "Item", "Status": "Active"}]
+if "--mcp" in sys.argv:
+    app.mcp.run()
 ```
+- Exposes tools/resources/prompts via MCP
+- Compatible with Claude Desktop, Continue, etc.
+- Stateful between calls
 
-### State Management
-State is a separate dataclass passed to commands:
-
+### API Mode
 ```python
-@dataclass
-class MyState:
-    items: list[dict] = field(default_factory=list)
-    
-app = App("myapp", MyState)
+json_api = app.using(JSONSerializer())
+# Use with FastAPI/Flask/etc
 ```
+- Same commands, JSON output
+- RESTful endpoints
+- Shared state with REPL
 
-### Display Hints
-Control output formatting with display hints:
+## Display Types
 
-- `display="table"` - Tabular data with headers
-- `display="box"` - Bordered text with optional title
-- `display="list"` - Bullet lists
-- `display="tree"` - Hierarchical data
-- `display="bar_chart"` - Horizontal bar charts
-- `display="progress"` - Progress bars
+| Type | Input Data | Output |
+|------|------------|--------|
+| `table` | List of dicts | Formatted table with headers |
+| `box` | Any | Bordered box with optional title |
+| `tree` | Nested dict | Hierarchical tree view |
+| `list` | List | Bullet list |
+| `bar_chart` | Dict of numbers | Horizontal bar chart |
+| `progress` | {value, total} | Progress bar |
 
-### Custom Display Handlers
-Create custom display types for complex layouts:
+## FastMCP Types
 
-```python
-# Register a custom display handler
-@app.serializer.register("report")
-def handle_report(data, meta):
-    from replkit2.textkit import compose, box
-    sections = []
-    for title, section_data, opts in data:
-        section_meta = CommandMeta(display=opts.get("display"), display_opts=opts)
-        serialized = app.serializer.serialize(section_data, section_meta)
-        sections.append(box(serialized, title=title))
-    return compose(*sections, spacing=1)
+| Config | Purpose | Example URI |
+|--------|---------|-------------|
+| `{"type": "tool"}` | Actions/commands | N/A |
+| `{"type": "resource"}` | Readable data | `app://get_item/{id}` |
+| `{"type": "prompt"}` | Prompt templates | N/A |
+| `{"enabled": False}` | REPL-only command | N/A |
 
-# Use the custom display
-@app.command(display="report")
-def report(state):
-    return [
-        ("Summary", get_summary(state), {"display": "box"}),
-        ("Details", get_details(state), {"display": "table"}),
-        ("Breakdown", get_breakdown(state), {"display": "tree"})
-    ]
-```
+## Tips
 
-## Running Examples
-
-1. Install ReplKit2:
-   ```bash
-   uv add replkit2
-   ```
-
-2. For the API example, install extras:
-   ```bash
-   uv add replkit2[api]
-   ```
-
-3. Run any example:
-   ```bash
-   uv run python examples/todo.py
-   ```
-
-## Old Examples
-
-The previous decorator-based examples are archived in `_archive/` for reference. The Flask-style pattern is now the recommended approach for all new ReplKit2 applications.
+1. **State First**: Every command receives state as first parameter
+2. **Return Data**: Commands return data, not formatted strings
+3. **Display Hints**: Match return type to display type
+4. **MCP URIs**: Auto-generated from function name and parameters
+5. **Type Safety**: Use `FastMCPTool`, `FastMCPResource` for IDE support

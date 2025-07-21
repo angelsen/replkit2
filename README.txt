@@ -11,34 +11,28 @@
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
-This directory contains examples demonstrating the Flask-style API introduced in
-
-ReplKit2 v2.0.
+Flask-style REPL applications with rich ASCII output and MCP integration.
 
 +-- H2 ------------------------------------------------------------------------+
 | Quick Start                                                                  |
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
-All examples use the modern Flask-style pattern:
-
 +-- CODE ----------------------------------------------------------------------+
-| from replkit2 import App                                                     |
+| # Install                                                                    |
+| uv add replkit2                                                              |
 |                                                                              |
-| # Create app with state                                                      |
-| app = App("myapp", MyState)                                                  |
+| # Run examples                                                               |
+| uv run python examples/todo.py                                               |
+| uv run python examples/monitor.py                                            |
+| uv run python examples/notes_mcp.py                                          |
 |                                                                              |
-| # Define commands with decorators                                            |
-| @app.command()                                                               |
-| def hello(state, name: str = "World"):                                       |
-|     return f"Hello, {name}!"                                                 |
-|                                                                              |
-| # Run the REPL with a banner                                                 |
-| app.run(title="My Application")                                              |
+| # Run with MCP                                                               |
+| uv run python examples/notes_mcp.py --mcp                                    |
 +------------------------------------------------------------------------------+
 
 +-- H2 ------------------------------------------------------------------------+
-| Examples                                                                     |
+| Core Examples                                                                |
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
@@ -47,174 +41,193 @@ All examples use the modern Flask-style pattern:
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
-A full-featured todo application demonstrating:
+Full-featured task management with multiple views:
 
-* State management with dataclasses
-* Multiple display types (table, box, tree, list)
-* Command parameters and validation
-* Custom display handler for multi-section reports
-* Auto-generated help() command
+* Table view for task lists
+* Tree view for categorization
+* Progress bars for completion tracking
+* Custom multi-section reports
+* State persistence between commands
 
-+-- CODE ----------------------------------------------------------------------+
-| uv run python examples/todo.py                                               |
-+------------------------------------------------------------------------------+
+Key patterns: state management, display types, custom display handlers
 
 +-- H3 ------------------------------------------------------------------------+
 | monitor.py - System Monitor                                                  |
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
-Real-time system monitoring showing:
+Real-time system monitoring dashboard:
 
-* CPU, memory, disk, and network stats
-* Progress bars and charts
-* Table formatting for processes
-* Integration with psutil
+* CPU/Memory/Disk usage with progress bars
+* Network stats in tables
+* Process list with sorting
+* Bar charts for resource visualization
 
-+-- CODE ----------------------------------------------------------------------+
-| uv run python examples/monitor.py                                            |
-+------------------------------------------------------------------------------+
+Key patterns: external data integration, real-time updates, charts
 
 +-- H3 ------------------------------------------------------------------------+
-| todo_api.py - FastAPI Integration                                            |
+| notes_mcp.py - FastMCP Integration Demo                                      |
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
-The same todo app exposed as a REST API:
+Note-taking app exposing MCP tools, resources, and prompts:
+
+* Tools: `add_note`, `list_notes`
+* Resources: `note_summary`, `get_note/{id}`
+* Prompts: `brainstorm_prompt`
+* Dual-mode: REPL or MCP server
+
+Key patterns: FastMCP configuration, URI templates, typed configs
+
++-- H3 ------------------------------------------------------------------------+
+| todo_api.py - REST API Integration                                           |
++------------------------------------------------------------------------------+
+--------------------------------------------------------------------------------
+
+Same todo app exposed as FastAPI:
 
 * Shared state between REPL and API
-* Different serializers for different outputs
-* Pydantic models for validation
-* Auto-generated API documentation
+* JSON serialization for API responses
+* Swagger UI at `/docs`
+* Demonstrates `app.using(JSONSerializer())`
 
-+-- CODE ----------------------------------------------------------------------+
-| uv run --extra api uvicorn examples.todo_api:app --reload                    |
-+------------------------------------------------------------------------------+
+Run: [uv run --extra api uvicorn examples.todo_api:app]
 
-+-- H3 ------------------------------------------------------------------------+
-| readme.py - Markdown Renderer                                                |
++-- H2 ------------------------------------------------------------------------+
+| Command Patterns                                                             |
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
-A standalone utility showing TextKit's display capabilities:
-
-* No REPL functionality, just rendering
-* Converts markdown to ASCII art
-* Demonstrates box, table, and text formatting
++-- H3 ------------------------------------------------------------------------+
+| Basic Command                                                                |
++------------------------------------------------------------------------------+
+--------------------------------------------------------------------------------
 
 +-- CODE ----------------------------------------------------------------------+
-| uv run python examples/readme.py                                             |
+| @app.command()                                                               |
+| def hello(state, name: str = "World"):                                       |
+|     return f"Hello, {name}!"                                                 |
++------------------------------------------------------------------------------+
+
++-- H3 ------------------------------------------------------------------------+
+| Table Display                                                                |
++------------------------------------------------------------------------------+
+--------------------------------------------------------------------------------
+
++-- CODE ----------------------------------------------------------------------+
+| @app.command(display="table", headers=["ID", "Task", "Done"])                |
+| def list_tasks(state):                                                       |
+|     return [{"ID": t.id, "Task": t.text, "Done": "✓" if t.done else "✗"}     |
+|             for t in state.tasks]                                            |
++------------------------------------------------------------------------------+
+
++-- H3 ------------------------------------------------------------------------+
+| FastMCP Tool                                                                 |
++------------------------------------------------------------------------------+
+--------------------------------------------------------------------------------
+
++-- CODE ----------------------------------------------------------------------+
+| @app.command(fastmcp={"type": "tool", "tags": {"productivity"}})             |
+| def add_task(state, text: str):                                              |
+|     task = state.add_task(text)                                              |
+|     return f"Added task #{task.id}"                                          |
++------------------------------------------------------------------------------+
+
++-- H3 ------------------------------------------------------------------------+
+| FastMCP Resource                                                             |
++------------------------------------------------------------------------------+
+--------------------------------------------------------------------------------
+
++-- CODE ----------------------------------------------------------------------+
+| @app.command(fastmcp={"type": "resource", "mime_type": "application/json"})  |
+| def task_stats(state):                                                       |
+|     # Auto-generates URI: app://task_stats                                   |
+| return {"total": len(state.tasks), "done": sum(1 for t in state.tasks if     |
+| t.done)}                                                                     |
 +------------------------------------------------------------------------------+
 
 +-- H2 ------------------------------------------------------------------------+
-| Key Concepts                                                                 |
+| Running Modes                                                                |
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
 +-- H3 ------------------------------------------------------------------------+
-| Flask-style Commands                                                         |
+| REPL Mode (Default)                                                          |
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
-
-Commands are defined as functions decorated with [@app.command()]:
 
 +-- CODE ----------------------------------------------------------------------+
-| @app.command(display="table", headers=["ID", "Name", "Status"])              |
-| def list_items(state):                                                       |
-|     return [{"ID": 1, "Name": "Item", "Status": "Active"}]                   |
+| app.run(title="My Application")                                              |
 +------------------------------------------------------------------------------+
+
+* Interactive command prompt
+* Auto-generated help()
+* Pretty-printed output
 
 +-- H3 ------------------------------------------------------------------------+
-| State Management                                                             |
+| MCP Server Mode                                                              |
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
-
-State is a separate dataclass passed to commands:
 
 +-- CODE ----------------------------------------------------------------------+
-| @dataclass                                                                   |
-| class MyState:                                                               |
-|     items: list[dict] = field(default_factory=list)                          |
-|                                                                              |
-| app = App("myapp", MyState)                                                  |
+| if "--mcp" in sys.argv:                                                      |
+|     app.mcp.run()                                                            |
 +------------------------------------------------------------------------------+
+
+* Exposes tools/resources/prompts via MCP
+* Compatible with Claude Desktop, Continue, etc.
+* Stateful between calls
 
 +-- H3 ------------------------------------------------------------------------+
-| Display Hints                                                                |
+| API Mode                                                                     |
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
-
-Control output formatting with display hints:
-
-* `display="table"` - Tabular data with headers
-* `display="box"` - Bordered text with optional title
-* `display="list"` - Bullet lists
-* `display="tree"` - Hierarchical data
-* `display="bar_chart"` - Horizontal bar charts
-* `display="progress"` - Progress bars
-
-+-- H3 ------------------------------------------------------------------------+
-| Custom Display Handlers                                                      |
-+------------------------------------------------------------------------------+
---------------------------------------------------------------------------------
-
-Create custom display types for complex layouts:
 
 +-- CODE ----------------------------------------------------------------------+
-| # Register a custom display handler                                          |
-| @app.serializer.register("report")                                           |
-| def handle_report(data, meta):                                               |
-|     from replkit2.textkit import compose, box                                |
-|     sections = []                                                            |
-|     for title, section_data, opts in data:                                   |
-| section_meta = CommandMeta(display=opts.get("display"), display_opts=opts)   |
-|         serialized = app.serializer.serialize(section_data, section_meta)    |
-|         sections.append(box(serialized, title=title))                        |
-|     return compose(*sections, spacing=1)                                     |
-|                                                                              |
-| # Use the custom display                                                     |
-| @app.command(display="report")                                               |
-| def report(state):                                                           |
-|     return [                                                                 |
-|         ("Summary", get_summary(state), {"display": "box"}),                 |
-|         ("Details", get_details(state), {"display": "table"}),               |
-|         ("Breakdown", get_breakdown(state), {"display": "tree"})             |
-|     ]                                                                        |
+| json_api = app.using(JSONSerializer())                                       |
+| # Use with FastAPI/Flask/etc                                                 |
 +------------------------------------------------------------------------------+
+
+* Same commands, JSON output
+* RESTful endpoints
+* Shared state with REPL
 
 +-- H2 ------------------------------------------------------------------------+
-| Running Examples                                                             |
+| Display Types                                                                |
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
-1. Install ReplKit2:
-
-+-- CODE ----------------------------------------------------------------------+
-| uv add replkit2                                                              |
-+------------------------------------------------------------------------------+
-
-1. For the API example, install extras:
-
-+-- CODE ----------------------------------------------------------------------+
-| uv add replkit2[api]                                                         |
-+------------------------------------------------------------------------------+
-
-1. Run any example:
-
-+-- CODE ----------------------------------------------------------------------+
-| uv run python examples/todo.py                                               |
-+------------------------------------------------------------------------------+
+Type         Input Data       Output                          
+-----------  ---------------  --------------------------------
+`table`      List of dicts    Formatted table with headers    
+`box`        Any              Bordered box with optional title
+`tree`       Nested dict      Hierarchical tree view          
+`list`       List             Bullet list                     
+`bar_chart`  Dict of numbers  Horizontal bar chart            
+`progress`   {value, total}   Progress bar                    
 
 +-- H2 ------------------------------------------------------------------------+
-| Old Examples                                                                 |
+| FastMCP Types                                                                |
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
-The previous decorator-based examples are archived in [_archive/] for reference.
+Config                  Purpose            Example URI          
+----------------------  -----------------  ---------------------
+`{"type": "tool"}`      Actions/commands   N/A                  
+`{"type": "resource"}`  Readable data      `app://get_item/{id}`
+`{"type": "prompt"}`    Prompt templates   N/A                  
+`{"enabled": False}`    REPL-only command  N/A                  
 
-The Flask-style pattern is now the recommended approach for all new ReplKit2
++-- H2 ------------------------------------------------------------------------+
+| Tips                                                                         |
++------------------------------------------------------------------------------+
+--------------------------------------------------------------------------------
 
-applications.
+1. **State First**: Every command receives state as first parameter
+2. **Return Data**: Commands return data, not formatted strings
+3. **Display Hints**: Match return type to display type
+4. **MCP URIs**: Auto-generated from function name and parameters
+5. **Type Safety**: Use `FastMCPTool`, `FastMCPResource` for IDE support
 
 ================================================================================
 
