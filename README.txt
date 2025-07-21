@@ -7,108 +7,179 @@
 ================================================================================
 
 +-- H1 ------------------------------------------------------------------------+
-| REPLKIT2                                                                     |
+| REPLKIT2 EXAMPLES                                                            |
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
-A minimal Python framework for building stateful REPL applications with
+This directory contains examples demonstrating the Flask-style API introduced in
 
-beautiful ASCII output.
+ReplKit2 v2.0.
 
 +-- H2 ------------------------------------------------------------------------+
-| Features                                                                     |
+| Quick Start                                                                  |
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
-* **State Management**: Maintain state across REPL commands
-* **Display Hints**: Declarative output formatting
-* **Extensible**: Plugin architecture for custom displays
-* **Zero Dependencies**: Pure Python implementation
-
-+-- H2 ------------------------------------------------------------------------+
-| Quickstart                                                                   |
-+------------------------------------------------------------------------------+
---------------------------------------------------------------------------------
-
-Get started in under a minute:
+All examples use the modern Flask-style pattern:
 
 +-- CODE ----------------------------------------------------------------------+
-| # Install with uv (recommended)                                              |
-| uv add replkit2                                                              |
+| from replkit2 import App                                                     |
 |                                                                              |
-| # Or with pip                                                                |
-| pip install replkit2                                                         |
-+------------------------------------------------------------------------------+
-
-Create your first REPL app:
-
-+-- CODE ----------------------------------------------------------------------+
-| from replkit2 import create_repl_app, state, command                         |
+| # Create app with state                                                      |
+| app = App("myapp", MyState)                                                  |
 |                                                                              |
-| @state                                                                       |
-| class GreeterApp:                                                            |
-|     @command                                                                 |
-|     def hello(self, name: str = "World"):                                    |
-|         return f"Hello, {name}!"                                             |
+| # Define commands with decorators                                            |
+| @app.command()                                                               |
+| def hello(state, name: str = "World"):                                       |
+|     return f"Hello, {name}!"                                                 |
 |                                                                              |
-|     @command(display="box")                                                  |
-|     def welcome(self):                                                       |
-|         return "Welcome to ReplKit2!"                                        |
-|                                                                              |
-| app = create_repl_app("greeter", GreeterApp)                                 |
-+------------------------------------------------------------------------------+
-
-Run interactively:
-
-+-- CODE ----------------------------------------------------------------------+
-| # With uv                                                                    |
-| uv run python -i greeter.py                                                  |
-|                                                                              |
-| # With standard Python                                                       |
-| python -i greeter.py                                                         |
-+------------------------------------------------------------------------------+
-
-Then try the commands:
-
-+-- CODE ----------------------------------------------------------------------+
-| >>> hello("Alice")                                                           |
-| Hello, Alice!                                                                |
-|                                                                              |
-| >>> welcome()                                                                |
-| +----------------------+                                                     |
-| | Welcome to ReplKit2! |                                                     |
-| +----------------------+                                                     |
+| # Run the REPL with a banner                                                 |
+| app.run(title="My Application")                                              |
 +------------------------------------------------------------------------------+
 
 +-- H2 ------------------------------------------------------------------------+
-| Installation                                                                 |
+| Examples                                                                     |
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
 +-- H3 ------------------------------------------------------------------------+
-| Using uv (Recommended)                                                       |
+| todo.py - Todo List Manager                                                  |
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
+A full-featured todo application demonstrating:
+
+* State management with dataclasses
+* Multiple display types (table, box, tree, list)
+* Command parameters and validation
+* Custom display handler for multi-section reports
+* Auto-generated help() command
+
 +-- CODE ----------------------------------------------------------------------+
-| # Add to your project                                                        |
-| uv add replkit2                                                              |
-|                                                                              |
-| # Install with examples support                                              |
-| uv add replkit2[examples]                                                    |
+| uv run python examples/todo.py                                               |
 +------------------------------------------------------------------------------+
 
 +-- H3 ------------------------------------------------------------------------+
-| Using pip                                                                    |
+| monitor.py - System Monitor                                                  |
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
+Real-time system monitoring showing:
+
+* CPU, memory, disk, and network stats
+* Progress bars and charts
+* Table formatting for processes
+* Integration with psutil
+
 +-- CODE ----------------------------------------------------------------------+
-| # Basic installation                                                         |
-| pip install replkit2                                                         |
+| uv run python examples/monitor.py                                            |
++------------------------------------------------------------------------------+
+
++-- H3 ------------------------------------------------------------------------+
+| todo_api.py - FastAPI Integration                                            |
++------------------------------------------------------------------------------+
+--------------------------------------------------------------------------------
+
+The same todo app exposed as a REST API:
+
+* Shared state between REPL and API
+* Different serializers for different outputs
+* Pydantic models for validation
+* Auto-generated API documentation
+
++-- CODE ----------------------------------------------------------------------+
+| uv run --extra api uvicorn examples.todo_api:app --reload                    |
++------------------------------------------------------------------------------+
+
++-- H3 ------------------------------------------------------------------------+
+| readme.py - Markdown Renderer                                                |
++------------------------------------------------------------------------------+
+--------------------------------------------------------------------------------
+
+A standalone utility showing TextKit's display capabilities:
+
+* No REPL functionality, just rendering
+* Converts markdown to ASCII art
+* Demonstrates box, table, and text formatting
+
++-- CODE ----------------------------------------------------------------------+
+| uv run python examples/readme.py                                             |
++------------------------------------------------------------------------------+
+
++-- H2 ------------------------------------------------------------------------+
+| Key Concepts                                                                 |
++------------------------------------------------------------------------------+
+--------------------------------------------------------------------------------
+
++-- H3 ------------------------------------------------------------------------+
+| Flask-style Commands                                                         |
++------------------------------------------------------------------------------+
+--------------------------------------------------------------------------------
+
+Commands are defined as functions decorated with [@app.command()]:
+
++-- CODE ----------------------------------------------------------------------+
+| @app.command(display="table", headers=["ID", "Name", "Status"])              |
+| def list_items(state):                                                       |
+|     return [{"ID": 1, "Name": "Item", "Status": "Active"}]                   |
++------------------------------------------------------------------------------+
+
++-- H3 ------------------------------------------------------------------------+
+| State Management                                                             |
++------------------------------------------------------------------------------+
+--------------------------------------------------------------------------------
+
+State is a separate dataclass passed to commands:
+
++-- CODE ----------------------------------------------------------------------+
+| @dataclass                                                                   |
+| class MyState:                                                               |
+|     items: list[dict] = field(default_factory=list)                          |
 |                                                                              |
-| # With examples support (includes psutil)                                    |
-| pip install replkit2[examples]                                               |
+| app = App("myapp", MyState)                                                  |
++------------------------------------------------------------------------------+
+
++-- H3 ------------------------------------------------------------------------+
+| Display Hints                                                                |
++------------------------------------------------------------------------------+
+--------------------------------------------------------------------------------
+
+Control output formatting with display hints:
+
+* `display="table"` - Tabular data with headers
+* `display="box"` - Bordered text with optional title
+* `display="list"` - Bullet lists
+* `display="tree"` - Hierarchical data
+* `display="bar_chart"` - Horizontal bar charts
+* `display="progress"` - Progress bars
+
++-- H3 ------------------------------------------------------------------------+
+| Custom Display Handlers                                                      |
++------------------------------------------------------------------------------+
+--------------------------------------------------------------------------------
+
+Create custom display types for complex layouts:
+
++-- CODE ----------------------------------------------------------------------+
+| # Register a custom display handler                                          |
+| @app.serializer.register("report")                                           |
+| def handle_report(data, meta):                                               |
+|     from replkit2.textkit import compose, box                                |
+|     sections = []                                                            |
+|     for title, section_data, opts in data:                                   |
+| section_meta = CommandMeta(display=opts.get("display"), display_opts=opts)   |
+|         serialized = app.serializer.serialize(section_data, section_meta)    |
+|         sections.append(box(serialized, title=title))                        |
+|     return compose(*sections, spacing=1)                                     |
+|                                                                              |
+| # Use the custom display                                                     |
+| @app.command(display="report")                                               |
+| def report(state):                                                           |
+|     return [                                                                 |
+|         ("Summary", get_summary(state), {"display": "box"}),                 |
+|         ("Details", get_details(state), {"display": "table"}),               |
+|         ("Breakdown", get_breakdown(state), {"display": "tree"})             |
+|     ]                                                                        |
 +------------------------------------------------------------------------------+
 
 +-- H2 ------------------------------------------------------------------------+
@@ -116,115 +187,34 @@ Then try the commands:
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
-The examples/ directory contains several demos:
-
-+-- H3 ------------------------------------------------------------------------+
-| Todo List Manager                                                            |
-+------------------------------------------------------------------------------+
---------------------------------------------------------------------------------
+1. Install ReplKit2:
 
 +-- CODE ----------------------------------------------------------------------+
-| # Clone the repository                                                       |
-| git clone https://github.com/yourusername/replkit2                           |
-| cd replkit2                                                                  |
-|                                                                              |
-| # With uv                                                                    |
-| uv run python -i examples/todo.py                                            |
-|                                                                              |
-| # With standard Python                                                       |
-| python -i examples/todo.py                                                   |
+| uv add replkit2                                                              |
 +------------------------------------------------------------------------------+
 
-+-- H3 ------------------------------------------------------------------------+
-| System Monitor                                                               |
-+------------------------------------------------------------------------------+
---------------------------------------------------------------------------------
+1. For the API example, install extras:
 
 +-- CODE ----------------------------------------------------------------------+
-| # Requires psutil - install with examples extra                              |
-| uv add replkit2[examples]                                                    |
-| uv run python -i examples/monitor.py                                         |
-+------------------------------------------------------------------------------+
-
-+-- H3 ------------------------------------------------------------------------+
-| FastAPI Integration                                                          |
-+------------------------------------------------------------------------------+
---------------------------------------------------------------------------------
-
-+-- CODE ----------------------------------------------------------------------+
-| # Install API dependencies                                                   |
 | uv add replkit2[api]                                                         |
-|                                                                              |
-| # Run the API server                                                         |
-| uv run uvicorn examples.todo_api:app --reload                                |
++------------------------------------------------------------------------------+
+
+1. Run any example:
+
++-- CODE ----------------------------------------------------------------------+
+| uv run python examples/todo.py                                               |
 +------------------------------------------------------------------------------+
 
 +-- H2 ------------------------------------------------------------------------+
-| Display Types                                                                |
+| Old Examples                                                                 |
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
-ReplKit2 supports various ASCII display formats:
+The previous decorator-based examples are archived in [_archive/] for reference.
 
-Display Type  Description    Example                        
-------------  -------------  -------------------------------
-table         Tabular data   `@command(display="table")`    
-box           Bordered text  `@command(display="box")`      
-list          Bullet lists   `@command(display="list")`     
-tree          Hierarchical   `@command(display="tree")`     
-bar_chart     Bar charts     `@command(display="bar_chart")`
-progress      Progress bars  `@command(display="progress")` 
+The Flask-style pattern is now the recommended approach for all new ReplKit2
 
-+-- H2 ------------------------------------------------------------------------+
-| Advanced Usage                                                               |
-+------------------------------------------------------------------------------+
---------------------------------------------------------------------------------
-
-+-- H3 ------------------------------------------------------------------------+
-| Multiple Serializers                                                         |
-+------------------------------------------------------------------------------+
---------------------------------------------------------------------------------
-
-Use different output formats with the same logic:
-
-+-- CODE ----------------------------------------------------------------------+
-| from replkit2 import App, PassthroughSerializer, JSONSerializer              |
-| from replkit2.textkit import TextSerializer                                  |
-|                                                                              |
-| # Create app with default text output                                        |
-| app = App("myapp")                                                           |
-| app.register(MyCommands)                                                     |
-|                                                                              |
-| # Create different views                                                     |
-| json_view = app.with_serializer(JSONSerializer())                            |
-| raw_view = app.with_serializer(PassthroughSerializer())                      |
-|                                                                              |
-| # Same command, different output formats                                     |
-| text_output = app.execute("status")        # ASCII box/table                 |
-| json_output = json_view.execute("status")  # JSON string                     |
-| raw_output = raw_view.execute("status")    # Python dict                     |
-+------------------------------------------------------------------------------+
-
-+-- H3 ------------------------------------------------------------------------+
-| Custom Display Handlers                                                      |
-+------------------------------------------------------------------------------+
---------------------------------------------------------------------------------
-
-Add your own display formats:
-
-+-- CODE ----------------------------------------------------------------------+
-| from replkit2.textkit import TextSerializer                                  |
-|                                                                              |
-| serializer = TextSerializer()                                                |
-|                                                                              |
-| @serializer.register("custom")                                               |
-| def handle_custom(data, meta):                                               |
-|     return f"==> {data} <=="                                                 |
-|                                                                              |
-| @command(display="custom")                                                   |
-| def special():                                                               |
-|     return "Custom display!"                                                 |
-+------------------------------------------------------------------------------+
+applications.
 
 ================================================================================
 

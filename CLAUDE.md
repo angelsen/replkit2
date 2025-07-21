@@ -60,3 +60,6 @@ When encountering type warnings, ask:
 3. Does the fix require type gymnastics?
 
 If you answered "no, no, yes" - use a targeted `pyright: ignore` comment instead.
+
+@src/replkit2/llms.txt
+@src/pydov4/llms.txt

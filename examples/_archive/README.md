@@ -1,0 +1,179 @@
+# ReplKit2
+
+A minimal Python framework for building stateful REPL applications with beautiful ASCII output.
+
+## Features
+
+- **State Management**: Maintain state across REPL commands
+- **Display Hints**: Declarative output formatting  
+- **Extensible**: Plugin architecture for custom displays
+- **Zero Dependencies**: Pure Python implementation
+
+## Quickstart
+
+Get started in under a minute:
+
+```bash
+# Install with uv (recommended)
+uv add replkit2
+
+# Or with pip
+pip install replkit2
+```
+
+Create your first REPL app:
+
+```python
+from replkit2 import create_repl_app, state, command
+
+@state
+class GreeterApp:
+    @command
+    def hello(self, name: str = "World"):
+        return f"Hello, {name}!"
+    
+    @command(display="box")
+    def welcome(self):
+        return "Welcome to ReplKit2!"
+
+app = create_repl_app("greeter", GreeterApp)
+```
+
+Run interactively:
+
+```bash
+# With uv
+uv run python -i greeter.py
+
+# With standard Python
+python -i greeter.py
+```
+
+Then try the commands:
+
+```python
+>>> hello("Alice")
+Hello, Alice!
+
+>>> welcome()
++----------------------+
+| Welcome to ReplKit2! |
++----------------------+
+```
+
+## Installation
+
+### Using uv (Recommended)
+
+```bash
+# Add to your project
+uv add replkit2
+
+# Install with examples support
+uv add replkit2[examples]
+```
+
+### Using pip
+
+```bash
+# Basic installation
+pip install replkit2
+
+# With examples support (includes psutil)
+pip install replkit2[examples]
+```
+
+## Running Examples
+
+The examples/ directory contains several demos:
+
+### Todo List Manager
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/replkit2
+cd replkit2
+
+# With uv
+uv run python -i examples/todo.py
+
+# With standard Python  
+python -i examples/todo.py
+```
+
+### System Monitor
+
+```bash
+# Requires psutil - install with examples extra
+uv add replkit2[examples]
+uv run python -i examples/monitor.py
+```
+
+### FastAPI Integration
+
+```bash
+# Install API dependencies
+uv add replkit2[api]
+
+# Run the API server
+uv run uvicorn examples.todo_api:app --reload
+```
+
+## Display Types
+
+ReplKit2 supports various ASCII display formats:
+
+| Display Type | Description | Example |
+|-------------|-------------|---------|
+| table | Tabular data | `@command(display="table")` |
+| box | Bordered text | `@command(display="box")` |
+| list | Bullet lists | `@command(display="list")` |
+| tree | Hierarchical | `@command(display="tree")` |
+| bar_chart | Bar charts | `@command(display="bar_chart")` |
+| progress | Progress bars | `@command(display="progress")` |
+
+## Advanced Usage
+
+### Multiple Serializers
+
+Use different output formats with the same logic:
+
+```python
+from replkit2 import App, PassthroughSerializer, JSONSerializer
+from replkit2.textkit import TextSerializer
+
+# Create app with default text output
+app = App("myapp")
+app.register(MyCommands)
+
+# Create different views
+json_view = app.with_serializer(JSONSerializer())
+raw_view = app.with_serializer(PassthroughSerializer())
+
+# Same command, different output formats
+text_output = app.execute("status")        # ASCII box/table
+json_output = json_view.execute("status")  # JSON string
+raw_output = raw_view.execute("status")    # Python dict
+```
+
+### Custom Display Handlers
+
+Add your own display formats:
+
+```python
+from replkit2.textkit import TextSerializer
+
+serializer = TextSerializer()
+
+@serializer.register("custom")
+def handle_custom(data, meta):
+    return f"==> {data} <=="
+
+@command(display="custom")
+def special():
+    return "Custom display!"
+```
+
+---
+
+Built with ❤️ for the Python REPL

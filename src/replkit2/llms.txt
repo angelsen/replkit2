@@ -16,20 +16,32 @@ Use: "Add a command that returns structured data for table display, enabling use
 
 ### 1. State Management
 ```python
-@state
-class TodoApp:
-    todos: list[dict]  # Be explicit with type annotations
-    
-    def __init__(self):
-        self.todos = []  # Initialize state clearly
+from dataclasses import dataclass, field
+from replkit2 import App
+
+@dataclass
+class TodoState:
+    todos: list[dict] = field(default_factory=list)  # Be explicit with type annotations
+    next_id: int = 1
+
+# Create app with state
+app = App("todo", TodoState)
 ```
 
 ### 2. Display Hints
-Always specify display intent:
+Always specify display intent with Flask-style decorators:
 ```python
-@command(display="table", headers=["id", "task", "done"])
-@command(display="box", title="Summary", width=60)
-@command(display="bar_chart", show_values=True)
+@app.command(display="table", headers=["id", "task", "done"])
+def list_todos(state):
+    return state.todos
+
+@app.command(display="box", title="Summary", width=60)
+def summary(state):
+    return f"Total: {len(state.todos)} tasks"
+
+@app.command(display="bar_chart", show_values=True)
+def priority_chart(state):
+    return {"high": 5, "medium": 3, "low": 2}
 ```
 
 ### 3. Return Structured Data
@@ -43,22 +55,24 @@ Match data structure to display type:
 
 ### Leverage Multiple Serializers
 ```python
+from replkit2 import App, JSONSerializer, TextSerializer
+
 # Create once, use many ways
-app = create_repl_app("myapp", MyCommands)
-json_api = app.with_serializer(JSONSerializer())
-text_cli = app.with_serializer(TextSerializer())
+app = App("myapp", MyState)
+json_api = app.using(JSONSerializer())
+text_cli = app.using(TextSerializer())
 ```
 
 ### Write Comprehensive Examples
 Include multiple display types and real-world patterns:
 ```python
-@command(display="table")
-def list_items(self):
+@app.command(display="table")
+def list_items(state):
     """Show all items in a formatted table."""
-    return [{"id": i, "name": item} for i, item in enumerate(self.items)]
+    return [{"id": i, "name": item} for i, item in enumerate(state.items)]
 
-@command(display="tree")
-def organize(self):
+@app.command(display="tree")
+def organize(state):
     """Display hierarchical organization."""
     return {"high": [...], "medium": [...], "low": [...]}
 ```
@@ -66,31 +80,55 @@ def organize(self):
 ### Error Handling
 Be explicit about edge cases:
 ```python
-@command
-def get_item(self, id: int):
-    if id < 0 or id >= len(self.items):
+@app.command()
+def get_item(state, id: int):
+    if id < 0 or id >= len(state.items):
         return f"Error: Invalid ID {id}"
-    return self.items[id]
+    return state.items[id]
+```
+
+## Custom Display Components
+
+Register custom display handlers for complex layouts:
+```python
+@app.serializer.register("report")
+def handle_report(data, meta):
+    """Custom multi-section report display."""
+    from replkit2.textkit import compose, box
+    sections = []
+    for title, section_data, opts in data:
+        section_meta = CommandMeta(display=opts.get("display"), display_opts=opts)
+        serialized = app.serializer.serialize(section_data, section_meta)
+        sections.append(box(serialized, title=title))
+    return compose(*sections, spacing=1)
+
+@app.command(display="report")
+def report(state):
+    return [
+        ("Stats", get_stats(state), {"display": "table"}),
+        ("Items", get_items(state), {"display": "list"}),
+        ("Tree", get_tree(state), {"display": "tree"})
+    ]
 ```
 
 ## Common Patterns
 
 ### Progress Tracking
 ```python
-@command(display="progress", show_percentage=True)
-def completion(self):
-    done = sum(1 for t in self.todos if t["done"])
-    return {"value": done, "total": len(self.todos)}
+@app.command(display="progress", show_percentage=True)
+def completion(state):
+    done = sum(1 for t in state.todos if t["done"])
+    return {"value": done, "total": len(state.todos)}
 ```
 
 ### Multi-View Reports
 ```python
-@command
-def report(self):
+@app.command()
+def report(state):
     return [
-        ("Summary", self.stats(), {"display": "box"}),
-        ("Tasks", self.list_todos(), {"display": "table"}),
-        ("Progress", self.completion(), {"display": "progress"})
+        ("Summary", state.get_summary(), {"display": "box"}),
+        ("Tasks", state.todos, {"display": "table"}),
+        ("Progress", {"value": 5, "total": 10}, {"display": "progress"})
     ]
 ```
 
@@ -109,10 +147,18 @@ Write general-purpose solutions:
 - Implement actual business logic
 - Make commands reusable
 
+## Running Applications
+
+```python
+if __name__ == "__main__":
+    app.run(title="My Application Name")
+```
+
 ## Output Quality
 
 For impressive demos:
 - Use multiple display types in one app
 - Add thoughtful formatting options
-- Include help text and examples
+- help() command is auto-generated
+- Professional banner with app.run(title="...")
 - Provide comprehensive functionality

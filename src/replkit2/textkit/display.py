@@ -6,9 +6,22 @@ from .core import wrap
 from .icons import ICONS
 
 
-def table(rows: list[list[Any]], headers: list[str] | None = None) -> str:
+def table(
+    rows: list[list[Any]],
+    headers: list[str] | None = None,
+    width: int | None = None,
+    col_widths: list[int] | None = None,
+    wrap_cells: bool = False,
+) -> str:
     """
     Format data as an ASCII table.
+
+    Args:
+        rows: Table data rows
+        headers: Optional column headers
+        width: Total table width (distributes proportionally)
+        col_widths: Specific column widths (overrides auto-sizing)
+        wrap_cells: Whether to wrap long cell content across multiple lines
 
     Example:
         name    age  city
@@ -22,21 +35,63 @@ def table(rows: list[list[Any]], headers: list[str] | None = None) -> str:
     # Convert all values to strings
     str_rows = [[str(cell) for cell in row] for row in rows]
 
-    # Calculate column widths
+    # Determine number of columns
     if headers:
         num_cols = len(headers)
-        col_widths = [len(h) for h in headers]
         # Ensure all rows have same number of columns
         str_rows = [row[:num_cols] + [""] * (num_cols - len(row)) for row in str_rows]
     else:
         num_cols = max(len(row) for row in str_rows) if str_rows else 0
+
+    # Calculate column widths
+    if col_widths:
+        # Use provided column widths
+        if len(col_widths) < num_cols:
+            # Pad with auto-sized columns
+            col_widths = list(col_widths) + [0] * (num_cols - len(col_widths))
+    else:
+        # Auto-size columns
         col_widths = [0] * num_cols
 
-    # Update widths based on data
-    for row in str_rows:
-        for i, cell in enumerate(row):
-            if i < len(col_widths):
-                col_widths[i] = max(col_widths[i], len(cell))
+        # Start with header widths if available
+        if headers:
+            for i, header in enumerate(headers):
+                if i < len(col_widths):
+                    col_widths[i] = len(header)
+
+        # Update widths based on data
+        for row in str_rows:
+            for i, cell in enumerate(row):
+                if i < len(col_widths):
+                    col_widths[i] = max(col_widths[i], len(cell))
+
+    # Apply total width constraint if specified
+    if width:
+        # Calculate gaps between columns
+        gap_width = 2 * (num_cols - 1)  # "  " between columns
+        available_width = width - gap_width
+
+        # If col_widths were provided, respect them but scale if needed
+        current_total = sum(col_widths)
+
+        if current_total > available_width:
+            # Scale down proportionally
+            scale = available_width / current_total
+            col_widths = [max(1, int(w * scale)) for w in col_widths]
+        elif current_total < available_width:
+            # Distribute extra space proportionally
+            extra = available_width - current_total
+            if current_total > 0:
+                # Distribute based on current proportions
+                for i in range(num_cols):
+                    col_widths[i] += int(col_widths[i] * extra / current_total)
+            else:
+                # Equal distribution
+                for i in range(num_cols):
+                    col_widths[i] += extra // num_cols
+                # Add remainder to last column
+                if num_cols > 0:
+                    col_widths[-1] += extra % num_cols
 
     # Build table
     result: list[str] = []
@@ -53,11 +108,44 @@ def table(rows: list[list[Any]], headers: list[str] | None = None) -> str:
 
     # Data rows
     for row in str_rows:
-        formatted_row: list[str] = []
-        for i, cell in enumerate(row):
-            if i < len(col_widths):
-                formatted_row.append(cell.ljust(col_widths[i]))
-        result.append("  ".join(formatted_row))
+        if wrap_cells:
+            # Wrap each cell and handle multi-line rows
+            wrapped_cells = []
+            max_lines = 1
+
+            for i, cell in enumerate(row):
+                if i < len(col_widths):
+                    # Wrap the cell content
+                    if len(cell) > col_widths[i]:
+                        wrapped = wrap(cell, col_widths[i])
+                        wrapped_cells.append(wrapped)
+                        max_lines = max(max_lines, len(wrapped))
+                    else:
+                        wrapped_cells.append([cell])
+                else:
+                    wrapped_cells.append([""])
+
+            # Output each line of the multi-line row
+            for line_idx in range(max_lines):
+                formatted_row: list[str] = []
+                for i, cell_lines in enumerate(wrapped_cells):
+                    if i < len(col_widths):
+                        # Get the line for this cell, or empty if no more lines
+                        line = cell_lines[line_idx] if line_idx < len(cell_lines) else ""
+                        formatted_row.append(line.ljust(col_widths[i]))
+                result.append("  ".join(formatted_row))
+        else:
+            # Simple truncation (existing behavior)
+            simple_row: list[str] = []
+            for i, cell in enumerate(row):
+                if i < len(col_widths):
+                    # Truncate if too long
+                    if len(cell) > col_widths[i]:
+                        truncated = cell[: col_widths[i] - 3] + "..."
+                        simple_row.append(truncated)
+                    else:
+                        simple_row.append(cell.ljust(col_widths[i]))
+            result.append("  ".join(simple_row))
 
     return "\n".join(result)
 

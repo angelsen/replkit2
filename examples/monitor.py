@@ -1,238 +1,249 @@
 #!/usr/bin/env python3
 """
-System monitor example showcasing TextKit's data visualization.
+Flask-style System Monitor Example
 
-Run interactively:
-    uv run python -i examples/monitor.py
+This example demonstrates:
+- Flask-style command decorators
+- Various display types (box, table, bar_chart, progress)
+- Real-time system monitoring with psutil
+- Clean state management
+
+Run:
+    uv run python examples/monitor.py
 
 Then use:
-    >>> status()        # System overview in a box
+    >>> status()        # System overview
     >>> cpu()           # CPU usage bars
     >>> memory()        # Memory statistics
-    >>> disk()          # Disk usage chart
-    >>> network()       # Network stats table
-    >>> top()           # Top processes
+    >>> disk()          # Disk usage
+    >>> network()       # Network stats
+    >>> processes()     # Top processes
 """
 
 import os
 import platform
 import psutil
 from datetime import datetime
-from replkit2 import create_repl_app, state, command
+from dataclasses import dataclass, field
+from replkit2 import App
 
 
-@state
-class SystemMonitor:
-    """System monitoring tool with ASCII visualizations."""
+@dataclass
+class MonitorState:
+    """State container for system monitoring."""
 
-    cpu_history: list[float]
-    start_time: datetime
+    start_time: datetime = field(default_factory=datetime.now)
+    cpu_history: list[float] = field(default_factory=list)
+    max_history: int = 60
 
-    def __init__(self):
-        self.cpu_history = []
-        self.start_time = datetime.now()
 
-    @command(display="box", title="System Status")
-    def status(self):
-        """Show system overview."""
-        uptime = datetime.now() - self.start_time
-        hours, remainder = divmod(uptime.seconds, 3600)
-        minutes, seconds = divmod(remainder, 60)
+# Create the app
+app = App("monitor", MonitorState)
 
-        return (
-            f"Hostname: {platform.node()}\n"
-            f"Platform: {platform.system()} {platform.release()}\n"
-            f"Python: {platform.python_version()}\n"
-            f"Uptime: {uptime.days}d {hours}h {minutes}m {seconds}s\n"
-            f"CPU Cores: {psutil.cpu_count()}\n"
-            f"Load Average: {', '.join(f'{x:.2f}' for x in os.getloadavg())}"
-        )
 
-    @command(display="bar_chart")
-    def cpu(self):
-        """Show CPU usage per core."""
-        cpu_percents = psutil.cpu_percent(interval=0.1, percpu=True)
+@app.command(display="box", title="System Status")
+def status(state):
+    """Show system overview."""
+    # Update CPU history
+    cpu_percent = psutil.cpu_percent(interval=0.1)
+    state.cpu_history.append(cpu_percent)
+    if len(state.cpu_history) > state.max_history:
+        state.cpu_history.pop(0)
 
-        return {f"Core {i}": percent for i, percent in enumerate(cpu_percents)}
+    # Get system info
+    boot_time = datetime.fromtimestamp(psutil.boot_time())
+    uptime = datetime.now() - boot_time
 
-    @command(display="table", headers=["metric", "used", "total", "percent"])
-    def memory(self):
-        """Show memory usage statistics."""
-        mem = psutil.virtual_memory()
-        swap = psutil.swap_memory()
+    return {
+        "Hostname": platform.node(),
+        "Platform": f"{platform.system()} {platform.release()}",
+        "Python": platform.python_version(),
+        "Uptime": f"{uptime.days}d {uptime.seconds // 3600}h {(uptime.seconds // 60) % 60}m",
+        "": "",  # Separator
+        "CPU Usage": f"{cpu_percent:.1f}%",
+        "CPU Cores": f"{psutil.cpu_count()} ({psutil.cpu_count(logical=False)} physical)",
+        "Load Average": " ".join(f"{x:.2f}" for x in os.getloadavg()) if hasattr(os, "getloadavg") else "N/A",
+        " ": "",  # Separator
+        "Memory Used": f"{psutil.virtual_memory().percent:.1f}%",
+        "Swap Used": f"{psutil.swap_memory().percent:.1f}%",
+        "Processes": len(psutil.pids()),
+    }
 
-        def fmt_bytes(bytes):
-            for unit in ["B", "KB", "MB", "GB"]:
-                if bytes < 1024.0:
-                    return f"{bytes:.1f}{unit}"
-                bytes /= 1024.0
-            return f"{bytes:.1f}TB"
 
-        return [
-            {
-                "metric": "RAM",
-                "used": fmt_bytes(mem.used),
-                "total": fmt_bytes(mem.total),
-                "percent": f"{mem.percent:.1f}%",
-            },
-            {
-                "metric": "Swap",
-                "used": fmt_bytes(swap.used),
-                "total": fmt_bytes(swap.total),
-                "percent": f"{swap.percent:.1f}%",
-            },
-        ]
+@app.command(display="bar_chart", show_values=True)
+def cpu(state, per_core: bool = False):
+    """Show CPU usage.
 
-    @command(display="bar_chart", show_values=True)
-    def disk(self):
-        """Show disk usage for all partitions."""
-        partitions = psutil.disk_partitions()
-        usage_data = {}
-
-        for partition in partitions:
-            try:
-                usage = psutil.disk_usage(partition.mountpoint)
-                # Only show if > 1GB total
-                if usage.total > 1024**3:
-                    usage_data[partition.mountpoint] = usage.percent
-            except PermissionError:
-                pass
-
-        return usage_data
-
-    @command(
-        display="table",
-        headers=["interface", "sent", "recv", "packets_sent", "packets_recv"],
-    )
-    def network(self):
-        """Show network interface statistics."""
-        stats = psutil.net_io_counters(pernic=True)
-
-        def fmt_bytes(bytes):
-            for unit in ["B", "KB", "MB", "GB"]:
-                if bytes < 1024.0:
-                    return f"{bytes:.1f}{unit}"
-                bytes /= 1024.0
-            return f"{bytes:.1f}TB"
-
-        return [
-            {
-                "interface": iface[:10],  # Truncate long names
-                "sent": fmt_bytes(io.bytes_sent),
-                "recv": fmt_bytes(io.bytes_recv),
-                "packets_sent": str(io.packets_sent),
-                "packets_recv": str(io.packets_recv),
-            }
-            for iface, io in stats.items()
-            if io.bytes_sent > 0 or io.bytes_recv > 0  # Only active interfaces
-        ][:5]  # Limit to 5 interfaces
-
-    @command(display="table", headers=["pid", "name", "cpu%", "mem%", "status"])
-    def top(self, count: int = 10):
-        """Show top processes by CPU usage."""
-        processes = []
-
-        for proc in psutil.process_iter(["pid", "name", "cpu_percent", "memory_percent", "status"]):
-            try:
-                info = proc.info
-                if info["cpu_percent"] is not None:
-                    processes.append(
-                        {
-                            "pid": info["pid"],
-                            "name": info["name"][:20],  # Truncate long names
-                            "cpu%": f"{info['cpu_percent']:.1f}",
-                            "mem%": f"{info['memory_percent']:.1f}",
-                            "status": info["status"],
-                        }
-                    )
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                pass
-
-        # Sort by CPU usage and return top N
-        processes.sort(key=lambda x: float(x["cpu%"]), reverse=True)
-        return processes[:count]
-
-    @command(display="list", style="bullet")
-    def alerts(self):
-        """Check for system alerts."""
-        alerts = []
-
-        # CPU check
-        cpu_percent = psutil.cpu_percent(interval=0.1)
-        if cpu_percent > 80:
-            alerts.append(f"High CPU usage: {cpu_percent:.1f}%")
-
-        # Memory check
-        mem = psutil.virtual_memory()
-        if mem.percent > 85:
-            alerts.append(f"High memory usage: {mem.percent:.1f}%")
-
-        # Disk check
-        for partition in psutil.disk_partitions():
-            try:
-                usage = psutil.disk_usage(partition.mountpoint)
-                if usage.percent > 90:
-                    alerts.append(f"Low disk space on {partition.mountpoint}: {usage.percent:.1f}% used")
-            except Exception:
-                pass
-
-        return alerts if alerts else ["All systems normal"]
-
-    @command
-    def cpu_sparkline(self):
-        """Show CPU usage trend (collects data over time)."""
-        from replkit2.textkit import sparkline
-
-        # Collect CPU samples
-        self.cpu_history.append(psutil.cpu_percent(interval=0.1))
-        # Keep last 50 samples
-        self.cpu_history = self.cpu_history[-50:]
-
-        if len(self.cpu_history) < 2:
-            return "Collecting CPU data... (call this command multiple times)"
-
-        return f"CPU Trend: {sparkline(self.cpu_history, width=40)}"
-
-    @command(display="tree")
-    def summary(self):
-        """System summary in tree format."""
-        cpu_count = psutil.cpu_count()
-        mem = psutil.virtual_memory()
-
+    Args:
+        per_core: Show per-core usage instead of overall
+    """
+    if per_core:
+        # Per-core CPU usage
+        percentages = psutil.cpu_percent(interval=0.1, percpu=True)
+        return {f"Core {i}": pct for i, pct in enumerate(percentages)}
+    else:
+        # Overall CPU with categories
+        cpu_times = psutil.cpu_times_percent(interval=0.1)
         return {
-            "System": {
-                "Hostname": platform.node(),
-                "OS": f"{platform.system()} {platform.release()}",
-            },
-            "Resources": {
-                "CPU": f"{cpu_count} cores @ {psutil.cpu_percent()}%",
-                "Memory": f"{mem.percent:.1f}% used",
-                "Processes": str(len(psutil.pids())),
-            },
-            "Storage": {
-                partition.device: f"{usage.percent:.1f}% used"
-                for partition in psutil.disk_partitions()
-                if (usage := psutil.disk_usage(partition.mountpoint)).total > 1024**3
-            },
+            "User": cpu_times.user,
+            "System": cpu_times.system,
+            "Idle": cpu_times.idle,
+            "Nice": getattr(cpu_times, "nice", 0),
+            "IOWait": getattr(cpu_times, "iowait", 0),
         }
 
 
-# Create app and inject commands
-app = create_repl_app("monitor", SystemMonitor)
+@app.command(display="box", title="Memory Usage")
+def memory(state):
+    """Show memory statistics."""
+    mem = psutil.virtual_memory()
+    swap = psutil.swap_memory()
+
+    def format_bytes(bytes):
+        for unit in ["B", "KB", "MB", "GB", "TB"]:
+            if bytes < 1024.0:
+                return f"{bytes:.1f} {unit}"
+            bytes /= 1024.0
+        return f"{bytes:.1f} PB"
+
+    return {
+        "Memory Total": format_bytes(mem.total),
+        "Memory Used": f"{format_bytes(mem.used)} ({mem.percent:.1f}%)",
+        "Memory Free": format_bytes(mem.free),
+        "Memory Available": format_bytes(mem.available),
+        "": "",  # Separator
+        "Swap Total": format_bytes(swap.total),
+        "Swap Used": f"{format_bytes(swap.used)} ({swap.percent:.1f}%)",
+        "Swap Free": format_bytes(swap.free),
+    }
+
+
+@app.command(display="progress", show_percentage=True)
+def disk(state, path: str = "/"):
+    """Show disk usage for a path.
+
+    Args:
+        path: Path to check (default: root)
+    """
+    try:
+        usage = psutil.disk_usage(path)
+        return {"value": usage.used, "total": usage.total, "label": f"Disk usage for {path}"}
+    except Exception as e:
+        return {"value": 0, "total": 100, "label": f"Error: {e}"}
+
+
+@app.command(display="table", headers=["Interface", "Status", "Sent", "Received", "Packets"])
+def network(state):
+    """Show network interface statistics."""
+    stats = psutil.net_io_counters(pernic=True)
+    addrs = psutil.net_if_addrs()
+
+    def format_bytes(bytes):
+        for unit in ["B", "KB", "MB", "GB"]:
+            if bytes < 1024.0:
+                return f"{bytes:.1f}{unit}"
+            bytes /= 1024.0
+        return f"{bytes:.1f}TB"
+
+    result = []
+    for iface, io in stats.items():
+        # Get status
+        status = "UP" if iface in addrs and any(addr.address for addr in addrs[iface]) else "DOWN"
+
+        result.append(
+            {
+                "Interface": iface[:15],  # Truncate long names
+                "Status": status,
+                "Sent": format_bytes(io.bytes_sent),
+                "Received": format_bytes(io.bytes_recv),
+                "Packets": f"{io.packets_sent}/{io.packets_recv}",
+            }
+        )
+
+    return result
+
+
+@app.command(display="table", headers=["PID", "Name", "CPU%", "Memory%", "Status"])
+def processes(state, limit: int = 10):
+    """Show top processes by CPU usage.
+
+    Args:
+        limit: Number of processes to show
+    """
+    procs = []
+    for proc in psutil.process_iter(["pid", "name", "cpu_percent", "memory_percent", "status"]):
+        try:
+            info = proc.info
+            # Skip if we can't get CPU percent
+            if info["cpu_percent"] is None:
+                continue
+            procs.append(
+                {
+                    "PID": info["pid"],
+                    "Name": info["name"][:20],  # Truncate long names
+                    "CPU%": f"{info['cpu_percent']:.1f}",
+                    "Memory%": f"{info['memory_percent']:.1f}",
+                    "Status": info["status"],
+                }
+            )
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
+
+    # Sort by CPU usage and return top N
+    procs.sort(key=lambda x: float(x["CPU%"]), reverse=True)
+    return procs[:limit]
+
+
+@app.command(display="list")
+def mounts(state):
+    """List disk partitions and mount points."""
+    partitions = psutil.disk_partitions()
+
+    result = []
+    for part in partitions:
+        try:
+            usage = psutil.disk_usage(part.mountpoint)
+            result.append(f"{part.device} -> {part.mountpoint} ({part.fstype}, {usage.percent:.1f}% used)")
+        except PermissionError:
+            result.append(f"{part.device} -> {part.mountpoint} ({part.fstype}, permission denied)")
+
+    return result
+
+
+@app.command(display="tree")
+def temps(state):
+    """Show temperature sensors (if available)."""
+    if not hasattr(psutil, "sensors_temperatures"):
+        return {"Error": ["Temperature sensors not available on this platform"]}
+
+    temps = psutil.sensors_temperatures()
+    if not temps:
+        return {"Error": ["No temperature sensors found"]}
+
+    result = {}
+    for name, entries in temps.items():
+        sensor_data = []
+        for entry in entries:
+            label = entry.label or "Sensor"
+            temp = f"{entry.current:.1f}C"
+            if entry.high:
+                temp += f" (high: {entry.high:.1f}C)"
+            sensor_data.append(f"{label}: {temp}")
+        result[name] = sensor_data
+
+    return result
+
+
+@app.command()
+def report(state):
+    """Generate a full system report."""
+    return [
+        ("System Status", status(state), {"display": "box"}),
+        ("CPU Usage", cpu(state), {"display": "bar_chart"}),
+        ("Top Processes", processes(state, limit=5), {"display": "table"}),
+        ("Network", network(state), {"display": "table"}),
+    ]
+
 
 if __name__ == "__main__":
-    print("System Monitor - TextKit Visualization Demo")
-    print("=" * 50)
-    print("Commands:")
-    print("  status()         - System overview")
-    print("  cpu()            - CPU usage per core")
-    print("  memory()         - Memory statistics")
-    print("  disk()           - Disk usage")
-    print("  network()        - Network statistics")
-    print("  top(count)       - Top processes")
-    print("  alerts()         - System alerts")
-    print("  cpu_sparkline()  - CPU trend (call multiple times)")
-    print("  summary()        - Tree view summary")
-    print()
-    print("Try: status()")
-    print()
+    app.run(title="Flask-style System Monitor")

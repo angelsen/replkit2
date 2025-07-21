@@ -1,179 +1,146 @@
-# ReplKit2
+# ReplKit2 Examples
 
-A minimal Python framework for building stateful REPL applications with beautiful ASCII output.
+This directory contains examples demonstrating the Flask-style API introduced in ReplKit2 v2.0.
 
-## Features
+## Quick Start
 
-- **State Management**: Maintain state across REPL commands
-- **Display Hints**: Declarative output formatting  
-- **Extensible**: Plugin architecture for custom displays
-- **Zero Dependencies**: Pure Python implementation
-
-## Quickstart
-
-Get started in under a minute:
-
-```bash
-# Install with uv (recommended)
-uv add replkit2
-
-# Or with pip
-pip install replkit2
-```
-
-Create your first REPL app:
+All examples use the modern Flask-style pattern:
 
 ```python
-from replkit2 import create_repl_app, state, command
+from replkit2 import App
 
-@state
-class GreeterApp:
-    @command
-    def hello(self, name: str = "World"):
-        return f"Hello, {name}!"
+# Create app with state
+app = App("myapp", MyState)
+
+# Define commands with decorators
+@app.command()
+def hello(state, name: str = "World"):
+    return f"Hello, {name}!"
+
+# Run the REPL with a banner
+app.run(title="My Application")
+```
+
+## Examples
+
+### todo.py - Todo List Manager
+A full-featured todo application demonstrating:
+- State management with dataclasses
+- Multiple display types (table, box, tree, list)
+- Command parameters and validation
+- Custom display handler for multi-section reports
+- Auto-generated help() command
+
+```bash
+uv run python examples/todo.py
+```
+
+### monitor.py - System Monitor
+Real-time system monitoring showing:
+- CPU, memory, disk, and network stats
+- Progress bars and charts
+- Table formatting for processes
+- Integration with psutil
+
+```bash
+uv run python examples/monitor.py
+```
+
+### todo_api.py - FastAPI Integration
+The same todo app exposed as a REST API:
+- Shared state between REPL and API
+- Different serializers for different outputs
+- Pydantic models for validation
+- Auto-generated API documentation
+
+```bash
+uv run --extra api uvicorn examples.todo_api:app --reload
+```
+
+### readme.py - Markdown Renderer
+A standalone utility showing TextKit's display capabilities:
+- No REPL functionality, just rendering
+- Converts markdown to ASCII art
+- Demonstrates box, table, and text formatting
+
+```bash
+uv run python examples/readme.py
+```
+
+## Key Concepts
+
+### Flask-style Commands
+Commands are defined as functions decorated with `@app.command()`:
+
+```python
+@app.command(display="table", headers=["ID", "Name", "Status"])
+def list_items(state):
+    return [{"ID": 1, "Name": "Item", "Status": "Active"}]
+```
+
+### State Management
+State is a separate dataclass passed to commands:
+
+```python
+@dataclass
+class MyState:
+    items: list[dict] = field(default_factory=list)
     
-    @command(display="box")
-    def welcome(self):
-        return "Welcome to ReplKit2!"
-
-app = create_repl_app("greeter", GreeterApp)
+app = App("myapp", MyState)
 ```
 
-Run interactively:
+### Display Hints
+Control output formatting with display hints:
 
-```bash
-# With uv
-uv run python -i greeter.py
+- `display="table"` - Tabular data with headers
+- `display="box"` - Bordered text with optional title
+- `display="list"` - Bullet lists
+- `display="tree"` - Hierarchical data
+- `display="bar_chart"` - Horizontal bar charts
+- `display="progress"` - Progress bars
 
-# With standard Python
-python -i greeter.py
-```
-
-Then try the commands:
+### Custom Display Handlers
+Create custom display types for complex layouts:
 
 ```python
->>> hello("Alice")
-Hello, Alice!
+# Register a custom display handler
+@app.serializer.register("report")
+def handle_report(data, meta):
+    from replkit2.textkit import compose, box
+    sections = []
+    for title, section_data, opts in data:
+        section_meta = CommandMeta(display=opts.get("display"), display_opts=opts)
+        serialized = app.serializer.serialize(section_data, section_meta)
+        sections.append(box(serialized, title=title))
+    return compose(*sections, spacing=1)
 
->>> welcome()
-+----------------------+
-| Welcome to ReplKit2! |
-+----------------------+
-```
-
-## Installation
-
-### Using uv (Recommended)
-
-```bash
-# Add to your project
-uv add replkit2
-
-# Install with examples support
-uv add replkit2[examples]
-```
-
-### Using pip
-
-```bash
-# Basic installation
-pip install replkit2
-
-# With examples support (includes psutil)
-pip install replkit2[examples]
+# Use the custom display
+@app.command(display="report")
+def report(state):
+    return [
+        ("Summary", get_summary(state), {"display": "box"}),
+        ("Details", get_details(state), {"display": "table"}),
+        ("Breakdown", get_breakdown(state), {"display": "tree"})
+    ]
 ```
 
 ## Running Examples
 
-The examples/ directory contains several demos:
+1. Install ReplKit2:
+   ```bash
+   uv add replkit2
+   ```
 
-### Todo List Manager
+2. For the API example, install extras:
+   ```bash
+   uv add replkit2[api]
+   ```
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/replkit2
-cd replkit2
+3. Run any example:
+   ```bash
+   uv run python examples/todo.py
+   ```
 
-# With uv
-uv run python -i examples/todo.py
+## Old Examples
 
-# With standard Python  
-python -i examples/todo.py
-```
-
-### System Monitor
-
-```bash
-# Requires psutil - install with examples extra
-uv add replkit2[examples]
-uv run python -i examples/monitor.py
-```
-
-### FastAPI Integration
-
-```bash
-# Install API dependencies
-uv add replkit2[api]
-
-# Run the API server
-uv run uvicorn examples.todo_api:app --reload
-```
-
-## Display Types
-
-ReplKit2 supports various ASCII display formats:
-
-| Display Type | Description | Example |
-|-------------|-------------|---------|
-| table | Tabular data | `@command(display="table")` |
-| box | Bordered text | `@command(display="box")` |
-| list | Bullet lists | `@command(display="list")` |
-| tree | Hierarchical | `@command(display="tree")` |
-| bar_chart | Bar charts | `@command(display="bar_chart")` |
-| progress | Progress bars | `@command(display="progress")` |
-
-## Advanced Usage
-
-### Multiple Serializers
-
-Use different output formats with the same logic:
-
-```python
-from replkit2 import App, PassthroughSerializer, JSONSerializer
-from replkit2.textkit import TextSerializer
-
-# Create app with default text output
-app = App("myapp")
-app.register(MyCommands)
-
-# Create different views
-json_view = app.with_serializer(JSONSerializer())
-raw_view = app.with_serializer(PassthroughSerializer())
-
-# Same command, different output formats
-text_output = app.execute("status")        # ASCII box/table
-json_output = json_view.execute("status")  # JSON string
-raw_output = raw_view.execute("status")    # Python dict
-```
-
-### Custom Display Handlers
-
-Add your own display formats:
-
-```python
-from replkit2.textkit import TextSerializer
-
-serializer = TextSerializer()
-
-@serializer.register("custom")
-def handle_custom(data, meta):
-    return f"==> {data} <=="
-
-@command(display="custom")
-def special():
-    return "Custom display!"
-```
-
----
-
-Built with ❤️ for the Python REPL
+The previous decorator-based examples are archived in `_archive/` for reference. The Flask-style pattern is now the recommended approach for all new ReplKit2 applications.

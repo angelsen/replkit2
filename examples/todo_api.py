@@ -1,196 +1,176 @@
 #!/usr/bin/env python3
 """
-FastAPI + ReplKit2 example - Same todo app, different serialization.
+FastAPI + ReplKit2 Flask-style Example
 
-This demonstrates how the same TodoApp can be used for both:
-- REPL with ASCII formatting (TextSerializer)
-- API with JSON responses (PassthroughSerializer)
+This demonstrates how Flask-style ReplKit2 apps integrate with web frameworks:
+- Same TodoState used for both REPL and API
+- Different serializers for different outputs
+- Clean separation of concerns
 
 Run the API server:
     uv run --extra api uvicorn examples.todo_api:app --reload
 
 API endpoints:
-    GET    /               - Interactive docs
+    GET    /               - Interactive API docs
     GET    /todos          - List all todos
     POST   /todos          - Create a new todo
-    PATCH  /todos/{id}     - Mark todo as done
+    PATCH  /todos/{id}     - Update a todo
     DELETE /todos/{id}     - Remove a todo
     GET    /stats          - Todo statistics
-    GET    /report         - Full report (ASCII formatted)
+    GET    /report         - Full report (JSON)
 """
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime
 
-from replkit2 import App, PassthroughSerializer, JSONSerializer
+from replkit2 import PassthroughSerializer
 from replkit2.textkit import TextSerializer
 
-# Import the TodoApp from our REPL example
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent))
-from todo import TodoApp  # pyright: ignore[reportImplicitRelativeImport]
+# Import our state from the todo example
+from todo import app as todo_app
 
 
 # Pydantic models for API
 class TodoCreate(BaseModel):
     task: str
-    priority: str = "normal"
+    priority: str = "medium"
 
 
-# Create the main app with PassthroughSerializer for API responses
-app_instance = App("todo_api", serializer=PassthroughSerializer())
-app_instance.register(TodoApp)
+class TodoUpdate(BaseModel):
+    done: Optional[bool] = None
+    task: Optional[str] = None
+    priority: Optional[str] = None
 
-# Create different views using the same state
-text_view = app_instance.with_serializer(TextSerializer())
-json_view = app_instance.with_serializer(JSONSerializer())
 
-# Aliases for backwards compatibility
-api_app = app_instance
-text_app = text_view
+class TodoResponse(BaseModel):
+    id: int
+    task: str
+    priority: str
+    done: bool
+    created: datetime
+    completed: Optional[datetime] = None
+
 
 # Create FastAPI app
-app = FastAPI(
-    title="Todo API",
-    description="Same TodoApp, different presentation layer",
-    version="1.0.0",
-)
+api = FastAPI(title="Todo API", description="ReplKit2 Flask-style Todo API")
+
+# Use the imported todo_app with different serializers
+state = todo_app.state  # Use the state from the imported app
+json_app = todo_app.using(PassthroughSerializer())
+text_app = todo_app.using(TextSerializer())
 
 
-@app.get("/")
-async def root():
-    """Redirect to docs."""
-    return {"message": "Visit /docs for interactive API documentation"}
+@api.get("/")
+def root():
+    """API root - redirects to docs."""
+    return {"message": "Todo API", "docs": "/docs"}
 
 
-@app.get("/todos")
-async def list_todos():
-    """List all todos as JSON."""
-    return api_app.execute("list")
+@api.get("/todos", response_model=list[TodoResponse])
+def get_todos():
+    """List all todos."""
+    return state.todos
 
 
-@app.post("/todos")
-async def create_todo(todo: TodoCreate):
+@api.post("/todos", response_model=TodoResponse)
+def create_todo(todo: TodoCreate):
     """Create a new todo."""
-    result = api_app.execute("add", todo.task, todo.priority)
-
-    # Extract task from the response string
-    if isinstance(result, str) and result.startswith("Added:"):
-        # Get the newly created todo
-        todos = api_app.execute("list")
-        return todos[-1] if todos else {"error": "Todo not created"}
-
-    return {"error": result}
+    json_app.execute("add", todo.task, todo.priority)
+    return state.todos[-1]
 
 
-@app.patch("/todos/{todo_id}")
-async def complete_todo(todo_id: int):
-    """Mark a todo as done."""
-    result = api_app.execute("done", todo_id)
-
-    if isinstance(result, str):
-        if result.startswith("Completed:"):
-            # Get the updated todo
-            todos = api_app.execute("list")
-            for todo in todos:
-                if todo["id"] == todo_id:
-                    return todo
-            return {"error": "Todo not found after update"}
-        else:
-            raise HTTPException(status_code=404, detail=result)
-
-    return result
-
-
-@app.delete("/todos/{todo_id}")
-async def remove_todo(todo_id: int):
-    """Remove a todo."""
-    # Get todo before deletion
-    todos = api_app.execute("list")
-    todo_to_delete = None
-    for todo in todos:
+@api.get("/todos/{todo_id}", response_model=TodoResponse)
+def get_todo(todo_id: int):
+    """Get a specific todo."""
+    for todo in state.todos:
         if todo["id"] == todo_id:
-            todo_to_delete = todo
-            break
-
-    if not todo_to_delete:
-        raise HTTPException(status_code=404, detail=f"Todo {todo_id} not found")
-
-    result = api_app.execute("remove", todo_id)
-
-    if isinstance(result, str) and result.startswith("Removed:"):
-        return todo_to_delete
-    else:
-        raise HTTPException(status_code=400, detail=result)
+            return todo
+    raise HTTPException(status_code=404, detail=f"Todo {todo_id} not found")
 
 
-@app.get("/stats")
-async def get_stats():
-    """Get todo statistics as JSON."""
-    return api_app.execute("stats")
+@api.patch("/todos/{todo_id}", response_model=TodoResponse)
+def update_todo(todo_id: int, update: TodoUpdate):
+    """Update a todo."""
+    for todo in state.todos:
+        if todo["id"] == todo_id:
+            # Update fields if provided
+            if update.task is not None:
+                todo["task"] = update.task
+            if update.priority is not None:
+                todo["priority"] = update.priority
+            if update.done is not None:
+                if update.done and not todo["done"]:
+                    # Marking as done
+                    json_app.execute("done", todo_id)
+                elif not update.done and todo["done"]:
+                    # Marking as undone
+                    json_app.execute("undone", todo_id)
+            return todo
+    raise HTTPException(status_code=404, detail=f"Todo {todo_id} not found")
 
 
-@app.get("/pending")
-async def get_pending():
-    """Get pending todos as JSON."""
-    return api_app.execute("pending")
+@api.delete("/todos/{todo_id}")
+def delete_todo(todo_id: int):
+    """Delete a todo."""
+    # Check if exists
+    for todo in state.todos:
+        if todo["id"] == todo_id:
+            result = json_app.execute("remove", todo_id)
+            return {"message": result}
+    raise HTTPException(status_code=404, detail=f"Todo {todo_id} not found")
 
 
-@app.get("/report")
-async def get_report():
-    """Get full report as ASCII text."""
-    from fastapi.responses import PlainTextResponse
-
-    # Use the text app for formatted output
-    return PlainTextResponse(text_app.execute("report"))
+@api.get("/stats")
+def get_stats():
+    """Get todo statistics."""
+    # Use the stats command
+    return json_app.execute("stats")
 
 
-@app.get("/export/table")
-async def export_table():
-    """Export todos as ASCII table."""
-    from fastapi.responses import PlainTextResponse
-
-    return PlainTextResponse(text_app.execute("list"))
-
-
-@app.get("/export/tree")
-async def export_tree():
-    """Export todos organized by priority as ASCII tree."""
-    from fastapi.responses import PlainTextResponse
-
-    return PlainTextResponse(text_app.execute("organize"))
+@api.get("/report")
+def get_report():
+    """Get a full todo report."""
+    # Get data from various commands
+    return {
+        "stats": json_app.execute("stats"),
+        "todos": json_app.execute("todos"),
+        "by_priority": json_app.execute("by_priority"),
+        "pending_high": json_app.execute("pending", "high"),
+        "generated_at": datetime.now().isoformat(),
+    }
 
 
-@app.get("/export/json")
-async def export_json():
-    """Export todos as formatted JSON."""
-    from fastapi.responses import PlainTextResponse
+@api.get("/report/text", response_class=str)
+def get_text_report():
+    """Get a text-formatted report (ASCII art)."""
+    # Use text serializer for ASCII output
+    report_parts = []
 
-    return PlainTextResponse(json_view.execute("list"), media_type="application/json")
+    # Add stats box
+    stats_output = text_app.execute("stats")
+    report_parts.append("=== STATISTICS ===\n" + stats_output)
+
+    # Add todos table
+    todos_output = text_app.execute("todos")
+    report_parts.append("\n=== ALL TODOS ===\n" + todos_output)
+
+    # Add priority tree
+    priority_output = text_app.execute("by_priority")
+    report_parts.append("\n=== BY PRIORITY ===\n" + priority_output)
+
+    return "\n".join(report_parts)
 
 
-@app.get("/health")
-async def health_check():
-    """API health check."""
-    stats = api_app.execute("stats")
-    return {"status": "healthy", "service": "todo-api", "todos": stats}
-
-
-if __name__ == "__main__":
-    print("Todo API - Reusing TodoApp with Different Serializers")
-    print("=" * 50)
-    print()
-    print("This demonstrates the same TodoApp being used for:")
-    print("- JSON API responses (PassthroughSerializer)")
-    print("- ASCII text responses (TextSerializer)")
-    print()
-    print("Start the server:")
-    print("  uv run --extra api uvicorn examples.todo_api:app --reload")
-    print()
-    print("Then visit:")
-    print("  http://localhost:8000/docs     - Interactive API docs")
-    print("  http://localhost:8000/todos    - JSON todo list")
-    print("  http://localhost:8000/report   - ASCII formatted report")
-    print("  http://localhost:8000/export/table - ASCII table export")
+# Add startup event to populate some sample data
+@api.on_event("startup")
+def startup_event():
+    """Add some sample todos on startup."""
+    if not state.todos:
+        json_app.execute("add", "Build a REST API", "high")
+        json_app.execute("add", "Add authentication", "high")
+        json_app.execute("add", "Write API documentation", "medium")
+        json_app.execute("add", "Add unit tests", "medium")
+        json_app.execute("add", "Deploy to production", "low")
+        json_app.execute("done", 3)  # Mark documentation as done

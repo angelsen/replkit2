@@ -1,164 +1,213 @@
 #!/usr/bin/env python3
 """
-Todo list example showcasing ReplKit2 and TextKit features.
+Flask-style Todo App Example
 
-Run interactively:
-    uv run python -i examples/todo.py
+This example demonstrates the modern ReplKit2 patterns:
+- Flask-style command decorators with @app.command()
+- State as a dataclass passed to commands
+- Clean separation of state and behavior
+- Multiple display formats (table, box, tree, etc.)
+
+Run:
+    uv run python examples/todo.py
 
 Then use:
-    >>> list()          # Show todos in a table
+    >>> todos()         # List all todos
     >>> add("Task")     # Add a new todo
-    >>> done(0)         # Mark todo as done
+    >>> done(1)         # Mark todo #1 as done
+    >>> remove(1)       # Remove todo #1
     >>> stats()         # Show statistics
-    >>> report()        # Full report with multiple displays
+    >>> report()        # Full report
 """
 
+from dataclasses import dataclass, field
 from datetime import datetime
-from replkit2 import create_repl_app, state, command
+from replkit2 import App, CommandMeta
+from replkit2.textkit import compose, box
 
 
-@state
-class TodoApp:
-    """A feature-rich todo list manager."""
+@dataclass
+class TodoState:
+    """State container for the todo application."""
 
-    todos: list[dict[str, str | bool | datetime]]
-    completed_count: int
+    todos: list[dict] = field(default_factory=list)
+    next_id: int = 1
+    created_at: datetime = field(default_factory=datetime.now)
 
-    def __init__(self):
-        self.todos = []
-        self.completed_count = 0
 
-    @command(display="table", headers=["id", "task", "priority", "created", "done"])
-    def list(self):
-        """Show all todos in a table."""
-        return [
-            {
-                "id": i,
-                "task": t["task"][:30],  # Truncate long tasks
-                "priority": t["priority"],
-                "created": t["created"].strftime("%Y-%m-%d"),
-                "done": "[x]" if t["done"] else "[ ]",
-            }
-            for i, t in enumerate(self.todos)
-        ]
+# Create the app with state
+app = App("todo", TodoState)
 
-    @command
-    def add(self, task: str, priority: str = "normal"):
-        """Add a new todo with optional priority (low/normal/high)."""
-        if priority not in ["low", "normal", "high"]:
-            return f"Invalid priority: {priority}. Use low/normal/high"
 
-        self.todos.append(
-            {
-                "task": task,
-                "priority": priority,
-                "done": False,
-                "created": datetime.now(),
-            }
-        )
-        return f"Added: {task} (priority: {priority})"
+# Register custom report display handler
+@app.serializer.register("report")
+def handle_report(data, meta):
+    """Handle multi-section report display."""
+    sections = []
+    for title, section_data, opts in data:
+        section_meta = CommandMeta(display=opts.get("display"), display_opts=opts)
+        serialized = app.serializer.serialize(section_data, section_meta)
+        if opts.get("box", True):
+            sections.append(box(serialized, title=title))
+        else:
+            sections.append(serialized)
+    return compose(*sections, spacing=1)
 
-    @command
-    def done(self, task_id: int):
-        """Mark a todo as done."""
-        if 0 <= task_id < len(self.todos):
-            self.todos[task_id]["done"] = True
-            self.completed_count += 1
-            return f"Completed: {self.todos[task_id]['task']}"
-        return f"Invalid ID: {task_id}"
 
-    @command(display="list", style="check")
-    def pending(self):
-        """Show only pending todos as a checklist."""
-        return [f"{i}: {t['task']}" for i, t in enumerate(self.todos) if not t["done"]]
+@app.command(display="table", headers=["ID", "Task", "Priority", "Done", "Created"])
+def todos(state):
+    """List all todos in a table."""
+    if not state.todos:
+        return []
 
-    @command(display="bar_chart")
-    def stats(self):
-        """Show todo statistics as a bar chart."""
-        total = len(self.todos)
-        done = sum(1 for t in self.todos if t["done"])
-        pending = total - done
-
-        # Count by priority
-        priority_counts = {"low": 0, "normal": 0, "high": 0}
-        for t in self.todos:
-            if not t["done"]:
-                priority_counts[t["priority"]] += 1
-
-        return {
-            "Total": total,
-            "Done": done,
-            "Pending": pending,
-            "High Priority": priority_counts["high"],
-            "Normal Priority": priority_counts["normal"],
-            "Low Priority": priority_counts["low"],
+    return [
+        {
+            "ID": t["id"],
+            "Task": t["task"][:40] + "..." if len(t["task"]) > 40 else t["task"],
+            "Priority": t.get("priority", "medium"),
+            "Done": "[X]" if t["done"] else "[ ]",
+            "Created": t["created"].strftime("%Y-%m-%d"),
         }
-
-    @command(display="tree")
-    def organize(self):
-        """Organize todos by priority in a tree view."""
-        organized = {"high": [], "normal": [], "low": []}
-
-        for i, t in enumerate(self.todos):
-            if not t["done"]:
-                organized[t["priority"]].append(f"{i}: {t['task'][:40]}")
-
-        # Only include non-empty priorities
-        return {k: v for k, v in organized.items() if v}
-
-    @command(display="progress")
-    def completion(self):
-        """Show overall completion progress."""
-        total = len(self.todos)
-        done = sum(1 for t in self.todos if t["done"])
-
-        return {"value": done, "total": total, "label": "Completion"}
-
-    @command
-    def report(self):
-        """Generate a full report (demonstrates compose)."""
-        from replkit2.textkit import compose, hr, box, list_display
-
-        # Get data
-        total = len(self.todos)
-        done = sum(1 for t in self.todos if t["done"])
-
-        # Build report sections
-        summary = box(
-            f"Total: {total}\nCompleted: {done}\nPending: {total - done}",
-            title="Todo Summary",
-        )
-
-        # Get other displays
-        pending_list = self.pending()
-        pending_display = list_display(pending_list, style="check") if pending_list else "  No pending tasks!"
-
-        # Manual compose since we can't use display hints here
-        return compose(
-            summary,
-            hr(),
-            "Pending Tasks:",
-            pending_display,
-            hr(),
-            f"Overall Progress: {done}/{total}",
-        )
+        for t in state.todos
+    ]
 
 
-# Create app and inject commands
-app = create_repl_app("todo", TodoApp)
+@app.command()
+def add(state, task: str, priority: str = "medium"):
+    """Add a new todo task.
+
+    Args:
+        task: Description of the task
+        priority: Priority level (low, medium, high)
+    """
+    if priority not in ["low", "medium", "high"]:
+        return f"Invalid priority '{priority}'. Use: low, medium, high"
+
+    todo = {"id": state.next_id, "task": task, "priority": priority, "done": False, "created": datetime.now()}
+    state.todos.append(todo)
+    state.next_id += 1
+    return f"Added todo #{todo['id']}: {task}"
+
+
+@app.command()
+def done(state, todo_id: int):
+    """Mark a todo as done."""
+    for todo in state.todos:
+        if todo["id"] == todo_id:
+            if todo["done"]:
+                return f"Todo #{todo_id} is already done"
+            todo["done"] = True
+            todo["completed"] = datetime.now()
+            return f"Completed todo #{todo_id}: {todo['task']}"
+    return f"Todo #{todo_id} not found"
+
+
+@app.command()
+def undone(state, todo_id: int):
+    """Mark a todo as not done."""
+    for todo in state.todos:
+        if todo["id"] == todo_id:
+            if not todo["done"]:
+                return f"Todo #{todo_id} is not done"
+            todo["done"] = False
+            todo.pop("completed", None)
+            return f"Reopened todo #{todo_id}: {todo['task']}"
+    return f"Todo #{todo_id} not found"
+
+
+@app.command()
+def remove(state, todo_id: int):
+    """Remove a todo."""
+    for i, todo in enumerate(state.todos):
+        if todo["id"] == todo_id:
+            removed = state.todos.pop(i)
+            return f"Removed todo #{todo_id}: {removed['task']}"
+    return f"Todo #{todo_id} not found"
+
+
+@app.command(display="table", headers=["Metric", "Value"])
+def stats(state):
+    """Show todo statistics."""
+    total = len(state.todos)
+    if total == 0:
+        return []
+
+    done = sum(1 for t in state.todos if t["done"])
+    pending = total - done
+
+    # Priority breakdown
+    high = sum(1 for t in state.todos if t.get("priority") == "high" and not t["done"])
+    medium = sum(1 for t in state.todos if t.get("priority") == "medium" and not t["done"])
+    low = sum(1 for t in state.todos if t.get("priority") == "low" and not t["done"])
+
+    # Calculate completion rate
+    completion = f"{done / total * 100:.1f}%" if total > 0 else "N/A"
+
+    # Running time
+    running_time = datetime.now() - state.created_at
+    days = running_time.days
+    hours = running_time.seconds // 3600
+
+    # Return as list of [metric, value] pairs for table display
+    return [
+        ["Total Todos", str(total)],
+        ["Completed", str(done)],
+        ["Pending", str(pending)],
+        ["Completion Rate", completion],
+        ["", ""],  # Separator row
+        ["High Priority", str(high)],
+        ["Medium Priority", str(medium)],
+        ["Low Priority", str(low)],
+        ["", ""],  # Separator row
+        ["Session Time", f"{days}d {hours}h"],
+    ]
+
+
+@app.command(display="list")
+def pending(state, priority: str = None):
+    """List pending todos.
+
+    Args:
+        priority: Filter by priority (optional)
+    """
+    pending_todos = [t for t in state.todos if not t["done"]]
+
+    if priority:
+        pending_todos = [t for t in pending_todos if t.get("priority") == priority]
+
+    if not pending_todos:
+        return []
+
+    return [f"#{t['id']} [{t.get('priority', 'medium').upper()[0]}] {t['task']}" for t in pending_todos]
+
+
+@app.command(display="tree")
+def by_priority(state):
+    """Show todos organized by priority."""
+    high = [t for t in state.todos if t.get("priority") == "high"]
+    medium = [t for t in state.todos if t.get("priority") == "medium"]
+    low = [t for t in state.todos if t.get("priority") == "low"]
+
+    def format_todo(t):
+        status = "[X]" if t["done"] else "[ ]"
+        return f"{status} #{t['id']} - {t['task']}"
+
+    return {
+        "High Priority": [format_todo(t) for t in high] if high else ["None"],
+        "Medium Priority": [format_todo(t) for t in medium] if medium else ["None"],
+        "Low Priority": [format_todo(t) for t in low] if low else ["None"],
+    }
+
+
+@app.command(display="report")
+def report(state):
+    """Generate a comprehensive todo report."""
+    return [
+        ("Statistics", stats(state), {"display": "table", "headers": ["Metric", "Value"]}),
+        ("All Todos", todos(state), {"display": "table", "headers": ["ID", "Task", "Priority", "Done", "Created"]}),
+        ("By Priority", by_priority(state), {"display": "tree"}),
+    ]
+
 
 if __name__ == "__main__":
-    print("Todo List Manager - ReplKit2 + TextKit Demo")
-    print("=" * 50)
-    print("Commands:")
-    print("  list()                - Show all todos")
-    print("  add(task, priority)   - Add todo (priority: low/normal/high)")
-    print("  done(id)              - Mark as complete")
-    print("  pending()             - Show incomplete todos")
-    print("  stats()               - View statistics")
-    print("  organize()            - Tree view by priority")
-    print("  completion()          - Progress bar")
-    print("  report()              - Full report")
-    print()
-    print("Try: add('Write documentation', 'high')")
-    print()
+    app.run(title="Flask-style Todo App")

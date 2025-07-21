@@ -8,3 +8,12 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Resources directory (external documentation)
+resources/
+
+# Misc
+bugs/
+tasks/
+.context-search.json
+src/pydov4/
