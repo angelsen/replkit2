@@ -32,37 +32,43 @@ class App:
 
     def command(
         self,
+        func: Callable | None = None,
+        *,
         display: str | None = None,
         aliases: list[str] | None = None,
         fastmcp: FastMCPConfig | None = None,
         **display_opts: Any,
-    ) -> Callable[[Callable], Callable]:
+    ) -> Callable[[Callable], Callable] | Callable:
         """
         Flask-style decorator for registering commands.
 
         Args:
+            func: Function to decorate (when used without parentheses)
             display: Display type for output formatting
             aliases: Alternative names for the command
             fastmcp: FastMCP configuration dict
             **display_opts: Additional display options
         """
 
-        def decorator(func: Callable) -> Callable:
+        def decorator(f: Callable) -> Callable:
             meta = CommandMeta(display=display, display_opts=display_opts, aliases=aliases or [], fastmcp=fastmcp)
 
-            self._commands[func.__name__] = (func, meta)
+            self._commands[f.__name__] = (f, meta)
 
             for alias in meta.aliases:
-                self._commands[alias] = (func, meta)
+                self._commands[alias] = (f, meta)
 
             if fastmcp and fastmcp.get("enabled", True):
                 mcp_type = fastmcp.get("type")
                 if mcp_type in ("tool", "resource", "prompt"):
-                    self._mcp_components[f"{mcp_type}s"][func.__name__] = (func, meta)
+                    self._mcp_components[f"{mcp_type}s"][f.__name__] = (f, meta)
 
-            return func
+            return f
 
-        return decorator
+        if func is None:
+            return decorator
+        else:
+            return decorator(func)
 
     def execute(self, command_name: str, *args, **kwargs) -> Any:
         """Execute a command and return serialized result."""
