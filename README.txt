@@ -87,9 +87,9 @@ Key patterns: FastMCP configuration, URI templates, typed configs
 Same todo app exposed as FastAPI:
 
 * Shared state between REPL and API
-* JSON serialization for API responses
+* JSON formatting for API responses
 * Swagger UI at `/docs`
-* Demonstrates `app.using(JSONSerializer())`
+* Demonstrates `app.using(JSONFormatter())`
 
 Run: [uv run --extra api uvicorn examples.todo_api:app]
 
@@ -184,7 +184,7 @@ Run: [uv run --extra api uvicorn examples.todo_api:app]
 --------------------------------------------------------------------------------
 
 +-- CODE ----------------------------------------------------------------------+
-| json_api = app.using(JSONSerializer())                                       |
+| json_api = app.using(JSONFormatter())                                        |
 | # Use with FastAPI/Flask/etc                                                 |
 +------------------------------------------------------------------------------+
 

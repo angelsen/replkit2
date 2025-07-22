@@ -8,7 +8,7 @@ This roadmap outlines the current state and planned features for PyDoV4, a clean
 
 #### Core Infrastructure
 - [x] Thread-based async LSP client
-- [x] ReplKit2 integration with custom serializer
+- [x] ReplKit2 integration with custom formatter
 - [x] ASCII-only display output
 - [x] Fixed-width table formatting
 - [x] Cell wrapping support
@@ -317,5 +317,5 @@ def load_session(self, name: str):
 
 - Priority based on user impact and implementation complexity
 - Server compatibility varies - design for graceful degradation
-- Focus on data quality - let serializers handle presentation
+- Focus on data quality - let formatters handle presentation
 - Maintain clean separation between async client and sync commands

@@ -3,9 +3,9 @@
 from typing import Any, Callable
 import inspect
 
-from .serializers import Serializer
+from .formatters import Formatter
 from .types import CommandMeta, FastMCPConfig, FastMCPDefaults
-from .textkit import TextSerializer, compose, hr, align
+from .textkit import TextFormatter, compose, hr, align
 
 
 class App:
@@ -15,14 +15,14 @@ class App:
         self,
         name: str,
         state_class: type | None = None,
-        serializer: Serializer | None = None,
+        formatter: Formatter | None = None,
         uri_scheme: str | None = None,
         fastmcp: FastMCPDefaults | None = None,
     ):
         self.name = name
         self.state_class = state_class
         self._state = state_class() if state_class else None
-        self.serializer = serializer or TextSerializer()
+        self.formatter = formatter or TextFormatter()
         self.uri_scheme = uri_scheme or name
         self.fastmcp_defaults = fastmcp or {}
         self._commands: dict[str, tuple[Callable[..., Any], CommandMeta]] = {}
@@ -71,7 +71,7 @@ class App:
             return decorator(func)
 
     def execute(self, command_name: str, *args, **kwargs) -> Any:
-        """Execute a command and return serialized result."""
+        """Execute a command and return formatted result."""
         if command_name not in self._commands:
             raise ValueError(f"Unknown command: {command_name}")
 
@@ -82,7 +82,7 @@ class App:
         else:
             result = func(*args, **kwargs)
 
-        return self.serializer.serialize(result, meta)
+        return self.formatter.format(result, meta)
 
     def list_commands(self) -> list[str]:
         """Get list of available commands (excluding aliases)."""
@@ -129,10 +129,10 @@ class App:
             help_wrapper.__doc__ = "Show available commands."
             namespace["help"] = help_wrapper
 
-    def using(self, serializer: Serializer) -> "App":
-        """Create a new App instance using a different serializer."""
+    def using(self, formatter: Formatter) -> "App":
+        """Create a new App instance using a different formatter."""
         new_app = App(
-            self.name, type(self._state) if self._state else None, serializer, self.uri_scheme, self.fastmcp_defaults
+            self.name, type(self._state) if self._state else None, formatter, self.uri_scheme, self.fastmcp_defaults
         )
         new_app._state = self._state
         new_app._commands = self._commands

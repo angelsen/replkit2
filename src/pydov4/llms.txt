@@ -6,7 +6,7 @@ This guide helps LLMs write effective PyDoV4 commands using ReplKit2 v3 patterns
 
 ### Return Pure Python Data
 Instead of: "Return LSP objects or formatted strings"
-Use: "Return clean dicts/lists/strings that serializers can format"
+Use: "Return clean dicts/lists/strings that formatters can format"
 
 ### Use Native TextKit Displays
 Instead of: "Create custom display for every command"

@@ -5,7 +5,7 @@ Key principles:
 2. Default to native TextKit display types (table, box, tree, list)
 3. Use custom displays only when they add real value (e.g., code with diagnostics)
 4. Consistent error handling (return [] for tables, {} for trees)
-5. Let serializers handle all formatting
+5. Let formatters handle all formatting
 """
 
 # Import all command modules to register with app

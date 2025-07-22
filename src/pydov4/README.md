@@ -1,6 +1,6 @@
 # PyDoV4 - Modern LSP REPL
 
-PyDoV4 is an interactive REPL for testing Language Server Protocol (LSP) features with Python language servers. Built on ReplKit2's modern patterns, commands return pure Python data structures and serializers handle presentation.
+PyDoV4 is an interactive REPL for testing Language Server Protocol (LSP) features with Python language servers. Built on ReplKit2's modern patterns, commands return pure Python data structures and formatters handle presentation.
 
 ## Architecture
 
@@ -11,7 +11,7 @@ src/pydov4/
 ├── client.py           # AsyncLSPClient with thread-based event loop
 ├── constants.py        # Severity StrEnum and error handling utilities
 ├── converters.py       # Protocol converters for server compatibility (ruff, etc.)
-├── serializer.py       # Minimal custom serializer with code diagnostics display
+├── formatter.py       # Minimal custom formatter with code diagnostics display
 ├── commands/           # Modern v3 commands with clean data returns
 │   ├── __init__.py
 │   ├── core.py         # Core connection and status commands
@@ -29,7 +29,7 @@ src/pydov4/
 ### ReplKit2 Best Practices
 - **Pure Python data returns** - Commands return dicts/lists/strings, not LSP objects
 - **Native TextKit displays** - Uses box, table, tree, list display types
-- **Minimal custom serializers** - Only `custom:code_diagnostics` for inline diagnostics
+- **Minimal custom formatters** - Only `custom:code_diagnostics` for inline diagnostics
 - **Consistent error handling** - `empty_table()` and `empty_tree()` utilities
 - **Type-safe enums** - `Severity` StrEnum instead of magic numbers
 - **Flask-style registration** - `@app.command(display="table")` decorators
@@ -37,7 +37,7 @@ src/pydov4/
 ### Display Characteristics
 - **ASCII-only output** - No emojis, maximum compatibility
 - **Consistent 80-char width** - All displays respect `config.width`
-- **Clean data structures** - Serializers handle all formatting
+- **Clean data structures** - Formatters handle all formatting
 - **Composable components** - Uses TextKit's `compose()` and `hr()`
 
 ### Supported LSP Features
@@ -129,10 +129,10 @@ test.py    14    error     "json" is not defined                   basedpyright
 ```
 File: src/pydov4/app.py (lines 30-39)
 --------------------------------------------------------------------------------
-  30   | # Apply custom serializer for PyDoV4-specific formatting
-  31 W | from .serializer import PyDoV4Serializer  # noqa: E402
+  30   | # Apply custom formatter for PyDoV4-specific formatting
+  31 W | from .formatter import PyDoV4Formatter  # noqa: E402
        | ^ warning: Module level import not at top of file
-  32   | app = app.using(PyDoV4Serializer())
+  32   | app = app.using(PyDoV4Formatter())
   33   | 
   34   | # Import commands after app is created (they self-register)
   35 W | from . import commands  # noqa: E402, F401
@@ -161,8 +161,8 @@ def _run_async(self, coro):
 
 This allows synchronous REPL commands to work with async LSP operations.
 
-### Custom Serializer
-PyDoV4 uses a minimal custom serializer that:
+### Custom Formatter
+PyDoV4 uses a minimal custom formatter that:
 - Provides `custom:code_diagnostics` display for inline diagnostics
 - Composes TextKit components (`compose()`, `hr()`, `box()`)
 - Respects `config.width` for all displays
@@ -199,7 +199,7 @@ To add new commands:
 3. First parameter must be `state`
 4. Return pure Python data structures (dict/list/str)
 5. Use `empty_table()` or `empty_tree()` for error cases
-6. Let the serializer handle all formatting
+6. Let the formatter handle all formatting
 
 Example:
 ```python

@@ -1,6 +1,6 @@
 [project]
 name = "replkit2"
-version = "0.2.0"
+version = "0.3.0"
 description = "A minimal Python framework for building stateful REPL applications with ASCII display"
 readme = "README.txt"
 authors = [

@@ -40,17 +40,17 @@ app = App("todo", TodoState)
 
 
 # Register custom report display handler
-@app.serializer.register("report")
+@app.formatter.register("report")
 def handle_report(data, meta):
     """Handle multi-section report display."""
     sections = []
     for title, section_data, opts in data:
         section_meta = CommandMeta(display=opts.get("display"), display_opts=opts)
-        serialized = app.serializer.serialize(section_data, section_meta)
+        formatted = app.formatter.format(section_data, section_meta)
         if opts.get("box", True):
-            sections.append(box(serialized, title=title))
+            sections.append(box(formatted, title=title))
         else:
-            sections.append(serialized)
+            sections.append(formatted)
     return compose(*sections, spacing=1)
 
 

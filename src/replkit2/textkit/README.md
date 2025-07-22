@@ -55,12 +55,12 @@ print(progress(75, 100, width=50, label="Processing"))
 
 ## ReplKit2 Integration
 
-TextKit is the default serializer for ReplKit2:
+TextKit is the default formatter for ReplKit2:
 
 ```python
 from replkit2 import App
 
-# TextSerializer is used automatically
+# TextFormatter is used automatically
 app = App("myapp", MyState)
 
 @app.command(display="table", headers=["ID", "Name"])
@@ -72,7 +72,7 @@ def list_items(state):
 
 ```python
 # Register custom display type
-@app.serializer.register("custom")
+@app.formatter.register("custom")
 def handle_custom(data, meta):
     from replkit2.textkit import box, compose
     return compose(

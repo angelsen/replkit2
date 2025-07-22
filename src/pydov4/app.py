@@ -28,10 +28,10 @@ class LSPState:
 # Create the app
 app = App("pydo", LSPState)
 
-# Apply custom serializer for PyDoV4-specific formatting
-from .serializer import PyDoV4Serializer  # noqa: E402
+# Apply custom formatter for PyDoV4-specific formatting
+from .formatter import PyDoV4Formatter  # noqa: E402
 
-app = app.using(PyDoV4Serializer())
+app = app.using(PyDoV4Formatter())
 
 # Import commands after app is created (they self-register)
 from . import commands  # noqa: E402, F401

@@ -1,11 +1,11 @@
-"""Custom serializer for PyDoV4 - composes TextKit components."""
+"""Custom formatter for PyDoV4 - composes TextKit components."""
 
-from replkit2.textkit import TextSerializer, box, compose, hr, config
+from replkit2.textkit import TextFormatter, box, compose, hr, config
 from replkit2.types import CommandMeta
 
 
-class PyDoV4Serializer(TextSerializer):
-    """PyDoV4 serializer with custom display for code diagnostics."""
+class PyDoV4Formatter(TextFormatter):
+    """PyDoV4 formatter with custom display for code diagnostics."""
 
     def __init__(self):
         super().__init__()

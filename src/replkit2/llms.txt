@@ -123,7 +123,7 @@ def important_action(state, data: str):
 
 ```python
 # Register custom display type
-@app.serializer.register("dashboard")
+@app.formatter.register("dashboard")
 def dashboard_display(data, meta):
     from replkit2.textkit import compose, box, table
     return compose(

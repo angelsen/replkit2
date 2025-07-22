@@ -1,16 +1,16 @@
-"""TextSerializer for ReplKit2 integration with Flask-like registration."""
+"""TextFormatter for ReplKit2 integration with Flask-like registration."""
 
 from typing import Any, Callable, override
 
 from ..types import CommandMeta
-from ..serializers import Serializer
+from ..formatters import Formatter
 
 from .display import box, table, list_display, tree
 from .charts import bar_chart, progress
 
 
-class TextSerializer(Serializer):
-    """Extensible text serializer with decorator-based handler registration."""
+class TextFormatter(Formatter):
+    """Extensible text formatter with decorator-based handler registration."""
 
     def __init__(self):
         self._handlers: dict[str, Callable[[Any, CommandMeta], str]] = {}
@@ -26,7 +26,7 @@ class TextSerializer(Serializer):
         return decorator
 
     @override
-    def serialize(self, data: Any, meta: CommandMeta) -> str:
+    def format(self, data: Any, meta: CommandMeta) -> str:
         """Convert data to text using registered handlers."""
         if not meta.display:
             return str(data)

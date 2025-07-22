@@ -1,16 +1,16 @@
 """ReplKit2: Flask-style framework for building stateful REPL applications."""
 
 from .app import App
-from .serializers import Serializer, JSONSerializer, PassthroughSerializer
+from .formatters import Formatter, JSONFormatter, PassthroughFormatter
 from .types import CommandMeta, FastMCPConfig, FastMCPDefaults, FastMCPTool, FastMCPResource, FastMCPPrompt
-from .textkit import TextSerializer
+from .textkit import TextFormatter
 
 __all__ = [
     "App",
-    "Serializer",
-    "JSONSerializer",
-    "PassthroughSerializer",
-    "TextSerializer",
+    "Formatter",
+    "JSONFormatter",
+    "PassthroughFormatter",
+    "TextFormatter",
     "CommandMeta",
     "FastMCPConfig",
     "FastMCPDefaults",

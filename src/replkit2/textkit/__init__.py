@@ -18,8 +18,8 @@ from .layout import hr, columns, grid, compose
 # Icons
 from .icons import ICONS
 
-# Serializer for ReplKit2
-from .serializer import TextSerializer
+# Formatter for ReplKit2
+from .formatter import TextFormatter
 
 __all__ = [
     # Config
@@ -45,6 +45,6 @@ __all__ = [
     "compose",
     # Icons
     "ICONS",
-    # Serializer
-    "TextSerializer",
+    # Formatter
+    "TextFormatter",
 ]

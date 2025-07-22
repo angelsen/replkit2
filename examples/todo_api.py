@@ -4,7 +4,7 @@ FastAPI + ReplKit2 Flask-style Example
 
 This demonstrates how Flask-style ReplKit2 apps integrate with web frameworks:
 - Same TodoState used for both REPL and API
-- Different serializers for different outputs
+- Different formatters for different outputs
 - Clean separation of concerns
 
 Run the API server:
@@ -25,8 +25,8 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
-from replkit2 import PassthroughSerializer
-from replkit2.textkit import TextSerializer
+from replkit2 import PassthroughFormatter
+from replkit2.textkit import TextFormatter
 
 # Import our state from the todo example
 from todo import app as todo_app
@@ -56,10 +56,10 @@ class TodoResponse(BaseModel):
 # Create FastAPI app
 api = FastAPI(title="Todo API", description="ReplKit2 Flask-style Todo API")
 
-# Use the imported todo_app with different serializers
+# Use the imported todo_app with different formatters
 state = todo_app.state  # Use the state from the imported app
-json_app = todo_app.using(PassthroughSerializer())
-text_app = todo_app.using(TextSerializer())
+json_app = todo_app.using(PassthroughFormatter())
+text_app = todo_app.using(TextFormatter())
 
 
 @api.get("/")
@@ -145,7 +145,7 @@ def get_report():
 @api.get("/report/text", response_class=str)
 def get_text_report():
     """Get a text-formatted report (ASCII art)."""
-    # Use text serializer for ASCII output
+    # Use text formatter for ASCII output
     report_parts = []
 
     # Add stats box
