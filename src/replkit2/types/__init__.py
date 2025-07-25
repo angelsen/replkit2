@@ -1,0 +1,6 @@
+"""Type definitions for ReplKit2.
+
+Import types from their specific modules:
+- Core types: from replkit2.types.core import CommandMeta, ...
+- Display types: from replkit2.types.display import TableData, ...
+"""

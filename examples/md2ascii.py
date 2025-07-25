@@ -189,10 +189,11 @@ def render_markdown(md_path: str) -> str:
 
 
 if __name__ == "__main__":
-    # Render the README
-    output = render_markdown("examples/README.md")
-    print(output)
+    import sys
 
-    # Save to root
-    with open("README.txt", "w") as f:
-        f.write(output)
+    # Get markdown file from command line or default
+    md_file = sys.argv[1] if len(sys.argv) > 1 else "examples/README.md"
+
+    # Render the markdown
+    output = render_markdown(md_file)
+    print(output)

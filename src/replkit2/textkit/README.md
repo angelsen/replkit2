@@ -14,17 +14,25 @@ ASCII display toolkit bundled with ReplKit2.
 ```python
 from replkit2.textkit import box, table, tree, compose
 
-# Simple box
+# box() expects string content
 print(box("Hello, World!", title="Greeting"))
 
-# Table with data
+# table() expects list[list[Any]] - convert dicts if needed
 data = [
+    ["Alice", 30, "Engineering"],
+    ["Bob", 25, "Design"],
+]
+print(table(data, headers=["Name", "Age", "Dept"]))
+
+# Or convert from dicts manually
+dict_data = [
     {"name": "Alice", "age": 30, "dept": "Engineering"},
     {"name": "Bob", "age": 25, "dept": "Design"},
 ]
-print(table(data, headers=["name", "age", "dept"]))
+rows = [[d["name"], d["age"], d["dept"]] for d in dict_data]
+print(table(rows, headers=["Name", "Age", "Dept"]))
 
-# Tree structure
+# tree() expects dict[str, Any]
 org = {
     "Engineering": ["Alice", "Charlie"],
     "Design": ["Bob", "Dana"],
@@ -35,7 +43,7 @@ print(tree(org))
 # Compose multiple displays
 print(compose(
     box("5 users online", title="Status"),
-    table(data, headers=["name", "age", "dept"]),
+    table(data, headers=["Name", "Age", "Dept"]),
     spacing=1
 ))
 ```
@@ -73,11 +81,20 @@ def list_items(state):
 ```python
 # Register custom display type
 @app.formatter.register("custom")
-def handle_custom(data, meta):
+def handle_custom(data, meta, formatter):
     from replkit2.textkit import box, compose
+    from replkit2.types.core import CommandMeta
+    
+    # Can reuse formatter for nested data transformation
+    if isinstance(data["content"], list):
+        content_meta = CommandMeta(display="list")
+        content = formatter.format(data["content"], content_meta)
+    else:
+        content = data["content"]
+    
     return compose(
         box(data["title"], title="Custom"),
-        data["content"]
+        content
     )
 
 @app.command(display="custom")

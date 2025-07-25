@@ -49,7 +49,9 @@ Full-featured task management with multiple views:
 * Custom multi-section reports
 * State persistence between commands
 
-Key patterns: state management, display types, custom display handlers
+Key patterns: state management, display types, custom formatters with
+
+3-parameter signature
 
 +-- H3 ------------------------------------------------------------------------+
 | monitor.py - System Monitor                                                  |
@@ -58,12 +60,13 @@ Key patterns: state management, display types, custom display handlers
 
 Real-time system monitoring dashboard:
 
+* System status in table format
+* Memory usage breakdown
 * CPU/Memory/Disk usage with progress bars
-* Network stats in tables
-* Process list with sorting
-* Bar charts for resource visualization
+* Network stats and process list in tables
+* Multi-section report with composed displays
 
-Key patterns: external data integration, real-time updates, charts
+Key patterns: external data integration, real-time updates, report formatter
 
 +-- H3 ------------------------------------------------------------------------+
 | notes_mcp.py - FastMCP Integration Demo                                      |
@@ -78,6 +81,20 @@ Note-taking app exposing MCP tools, resources, and prompts:
 * Dual-mode: REPL or MCP server
 
 Key patterns: FastMCP configuration, URI templates, typed configs
+
++-- H3 ------------------------------------------------------------------------+
+| formatter_demo.py - Custom Formatter Examples                                |
++------------------------------------------------------------------------------+
+--------------------------------------------------------------------------------
+
+Demonstrates advanced formatter patterns:
+
+* Dashboard display with multiple sections
+* Formatter composition for nested data
+* Direct textkit vs formatter comparison
+* Reusable custom display types
+
+Key patterns: formatter parameter usage, display composition
 
 +-- H3 ------------------------------------------------------------------------+
 | todo_api.py - REST API Integration                                           |
@@ -117,7 +134,7 @@ Run: [uv run --extra api uvicorn examples.todo_api:app]
 +-- CODE ----------------------------------------------------------------------+
 | @app.command(display="table", headers=["ID", "Task", "Done"])                |
 | def list_tasks(state):                                                       |
-|     return [{"ID": t.id, "Task": t.text, "Done": "✓" if t.done else "✗"}     |
+| return [{"ID": t.id, "Task": t.text, "Done": "[X]" if t.done else "[ ]"}     |
 |             for t in state.tasks]                                            |
 +------------------------------------------------------------------------------+
 
@@ -144,6 +161,26 @@ Run: [uv run --extra api uvicorn examples.todo_api:app]
 |     # Auto-generates URI: app://task_stats                                   |
 | return {"total": len(state.tasks), "done": sum(1 for t in state.tasks if     |
 | t.done)}                                                                     |
++------------------------------------------------------------------------------+
+
++-- H3 ------------------------------------------------------------------------+
+| Custom Formatter                                                             |
++------------------------------------------------------------------------------+
+--------------------------------------------------------------------------------
+
++-- CODE ----------------------------------------------------------------------+
+| from replkit2.types.core import CommandMeta                                  |
+| from replkit2.textkit import compose, box                                    |
+|                                                                              |
+| @app.formatter.register("report")                                            |
+| def handle_report(data, meta, formatter):                                    |
+|     """Custom formatters receive (data, meta, formatter)."""                 |
+|     sections = []                                                            |
+|     for title, section_data, opts in data:                                   |
+| section_meta = CommandMeta(display=opts.get("display"), display_opts=opts)   |
+|         formatted = formatter.format(section_data, section_meta)             |
+|         sections.append(box(formatted, title=title))                         |
+|     return compose(*sections, spacing=1)                                     |
 +------------------------------------------------------------------------------+
 
 +-- H2 ------------------------------------------------------------------------+
@@ -197,14 +234,14 @@ Run: [uv run --extra api uvicorn examples.todo_api:app]
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
-Type         Input Data       Output                          
------------  ---------------  --------------------------------
-`table`      List of dicts    Formatted table with headers    
-`box`        Any              Bordered box with optional title
-`tree`       Nested dict      Hierarchical tree view          
-`list`       List             Bullet list                     
-`bar_chart`  Dict of numbers  Horizontal bar chart            
-`progress`   {value, total}   Progress bar                    
+Type         Input Data                      Output                          
+-----------  ------------------------------  --------------------------------
+`table`      List of dicts or list of lists  Formatted table with headers    
+`box`        String                          Bordered box with optional title
+`tree`       Nested dict                     Hierarchical tree view          
+`list`       List of strings                 Bullet list                     
+`bar_chart`  Dict of numbers                 Horizontal bar chart            
+`progress`   {value, total}                  Progress bar                    
 
 +-- H2 ------------------------------------------------------------------------+
 | FastMCP Types                                                                |
@@ -227,7 +264,7 @@ Config                  Purpose            Example URI
 2. **Return Data**: Commands return data, not formatted strings
 3. **Display Hints**: Match return type to display type
 4. **MCP URIs**: Auto-generated from function name and parameters
-5. **Type Safety**: Use `FastMCPTool`, `FastMCPResource` for IDE support
+5. **Type Safety**: Import from `replkit2.types.core` for proper types
 
 ================================================================================
 

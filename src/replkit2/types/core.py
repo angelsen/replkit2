@@ -26,10 +26,18 @@ class FastMCPPrompt(TypedDict):
     enabled: NotRequired[bool]
 
 
-FastMCPConfig = FastMCPTool | FastMCPResource | FastMCPPrompt
+class FastMCPDisabled(TypedDict):
+    """Type for disabling MCP functionality."""
+
+    enabled: Literal[False]
+
+
+FastMCPConfig = FastMCPTool | FastMCPResource | FastMCPPrompt | FastMCPDisabled
 
 
 class FastMCPDefaults(TypedDict, total=False):
+    name: str
+    description: str
     tags: set[str]
     enabled: bool
 

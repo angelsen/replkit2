@@ -1,6 +1,6 @@
-# ReplKit2 + TextKit + FastMCP Guide
+# ReplKit2 Guide
 
-Build stateful REPL apps with rich ASCII output and MCP integration.
+Flask-style framework for building stateful REPL applications with rich ASCII output and MCP integration.
 
 ## Basic App Structure
 
@@ -48,7 +48,8 @@ def completion(state):
 ## FastMCP Integration
 
 ```python
-from replkit2 import App, FastMCPTool, FastMCPResource
+from replkit2 import App
+from replkit2.types.core import FastMCPTool, FastMCPResource
 
 # App with MCP configuration
 app = App("notes", 
@@ -124,11 +125,15 @@ def important_action(state, data: str):
 ```python
 # Register custom display type
 @app.formatter.register("dashboard")
-def dashboard_display(data, meta):
-    from replkit2.textkit import compose, box, table
+def dashboard_display(data, meta, formatter):
+    from replkit2.textkit import compose, box
+    from replkit2.types.core import CommandMeta
+    # Use formatter for table to handle dict→list conversion
+    table_meta = CommandMeta(display="table", display_opts={"headers": ["ID", "Status"]})
+    items_table = formatter.format(data["items"], table_meta)
     return compose(
         box(data["summary"], title="Overview"),
-        table(data["items"], headers=["ID", "Status"]),
+        items_table,
         spacing=1
     )
 
@@ -146,17 +151,19 @@ def dashboard(state):
 
 1. **State**: First parameter of every command
 2. **Display**: Return data matching display type (list of dicts for tables)
-3. **FastMCP**: Dict with "type" field minimum, inherits app defaults
-4. **URIs**: Auto-generated from function signature and parameters
-5. **Dual Mode**: Same app works as REPL and MCP server
+3. **Custom formatters**: Receive three parameters: `(data, meta, formatter)`
+4. **Type imports**: Use explicit paths: `from replkit2.types.core import CommandMeta`
+5. **FastMCP**: Dict with "type" field minimum, inherits app defaults
+6. **URIs**: Auto-generated from function signature and parameters
+7. **Dual Mode**: Same app works as REPL and MCP server
 
 ## Display Type Reference
 
-- `table`: List of dicts → formatted table
-- `box`: Any data → bordered box
+- `table`: List of dicts or list of lists → formatted table
+- `box`: String → bordered box
 - `tree`: Nested dict → hierarchical view
-- `list`: List → bullet list
-- `bar_chart`: Dict with numbers → horizontal bars
+- `list`: List of strings → bullet list
+- `bar_chart`: Dict with numeric values → horizontal bars
 - `progress`: {"value": n, "total": m} → progress bar
 
 ## FastMCP Type Reference

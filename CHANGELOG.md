@@ -5,6 +5,38 @@ All notable changes to ReplKit2 will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.4.0] - 2025-07-25
+
+### Changed
+- **BREAKING**: Custom display handlers now receive formatter as third parameter
+  - All custom formatters registered with `@app.formatter.register()` must now accept three parameters: `(data, meta, formatter)`
+  - This enables proper composition of high-level formatters with low-level textkit functions
+  - Migration: Add `formatter` parameter to all custom display handlers
+  - See `docs/textkit-architecture.md` for architecture details
+- **BREAKING**: Type imports now require explicit module paths
+  - `from replkit2.types import CommandMeta` → `from replkit2.types.core import CommandMeta`
+  - `from replkit2.types.display import TableData, TreeData, ...` for display types
+  - This provides better organization and clearer import statements
+
+### Added
+- Formatter instance passed to custom display handlers
+- Documentation explaining low-level vs high-level API usage (`docs/textkit-architecture.md`)
+- Example demonstrating proper custom formatter implementation (`examples/formatter_demo.py`)
+- Type-safe display data validation with `types.display` module
+- `ExtensibleFormatter` protocol for formatters with registration capability
+- Type annotations for `App.mcp` property returning `FastMCP`
+- Enhanced `FastMCPDefaults` with `name` and `description` fields
+- `FastMCPDisabled` type for `{"enabled": False}` pattern
+
+### Fixed
+- Fixed bug where custom formatters using `table()` directly with `list[dict]` would display keys instead of values
+- Custom formatters can now properly reuse formatter logic for data transformation
+- Fixed `ExtensibleFormatter` protocol to match actual handler signatures
+- Fixed missing type annotations that caused basedpyright errors in dependent projects
+- App now correctly types `formatter` parameter as `ExtensibleFormatter`
+
 ## [0.3.0] - 2025-01-22
 
 ### Changed

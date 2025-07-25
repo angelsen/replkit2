@@ -2,7 +2,7 @@
 
 from .app import App
 from .formatters import Formatter, JSONFormatter, PassthroughFormatter
-from .types import CommandMeta, FastMCPConfig, FastMCPDefaults, FastMCPTool, FastMCPResource, FastMCPPrompt
+from .types.core import CommandMeta, FastMCPConfig, FastMCPDefaults, FastMCPTool, FastMCPResource, FastMCPPrompt
 from .textkit import TextFormatter
 
 __all__ = [

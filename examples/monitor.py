@@ -26,6 +26,8 @@ import psutil
 from datetime import datetime
 from dataclasses import dataclass, field
 from replkit2 import App
+from replkit2.types.core import CommandMeta
+from replkit2.textkit import compose, box
 
 
 @dataclass
@@ -41,7 +43,22 @@ class MonitorState:
 app = App("monitor", MonitorState)
 
 
-@app.command(display="box", title="System Status")
+# Register report display handler
+@app.formatter.register("report")
+def handle_report(data, meta, formatter):
+    """Handle multi-section report display."""
+    sections = []
+    for title, section_data, opts in data:
+        section_meta = CommandMeta(display=opts.get("display"), display_opts=opts)
+        formatted = formatter.format(section_data, section_meta)
+        if opts.get("box", True):
+            sections.append(box(formatted, title=title))
+        else:
+            sections.append(formatted)
+    return compose(*sections, spacing=1)
+
+
+@app.command(display="table", headers=["Metric", "Value"])
 def status(state):
     """Show system overview."""
     # Update CPU history
@@ -54,20 +71,23 @@ def status(state):
     boot_time = datetime.fromtimestamp(psutil.boot_time())
     uptime = datetime.now() - boot_time
 
-    return {
-        "Hostname": platform.node(),
-        "Platform": f"{platform.system()} {platform.release()}",
-        "Python": platform.python_version(),
-        "Uptime": f"{uptime.days}d {uptime.seconds // 3600}h {(uptime.seconds // 60) % 60}m",
-        "": "",  # Separator
-        "CPU Usage": f"{cpu_percent:.1f}%",
-        "CPU Cores": f"{psutil.cpu_count()} ({psutil.cpu_count(logical=False)} physical)",
-        "Load Average": " ".join(f"{x:.2f}" for x in os.getloadavg()) if hasattr(os, "getloadavg") else "N/A",
-        " ": "",  # Separator
-        "Memory Used": f"{psutil.virtual_memory().percent:.1f}%",
-        "Swap Used": f"{psutil.swap_memory().percent:.1f}%",
-        "Processes": len(psutil.pids()),
-    }
+    return [
+        {"Metric": "Hostname", "Value": platform.node()},
+        {"Metric": "Platform", "Value": f"{platform.system()} {platform.release()}"},
+        {"Metric": "Python", "Value": platform.python_version()},
+        {"Metric": "Uptime", "Value": f"{uptime.days}d {uptime.seconds // 3600}h {(uptime.seconds // 60) % 60}m"},
+        {"Metric": "", "Value": ""},  # Separator row
+        {"Metric": "CPU Usage", "Value": f"{cpu_percent:.1f}%"},
+        {"Metric": "CPU Cores", "Value": f"{psutil.cpu_count()} ({psutil.cpu_count(logical=False)} physical)"},
+        {
+            "Metric": "Load Average",
+            "Value": " ".join(f"{x:.2f}" for x in os.getloadavg()) if hasattr(os, "getloadavg") else "N/A",
+        },
+        {"Metric": "", "Value": ""},  # Separator row
+        {"Metric": "Memory Used", "Value": f"{psutil.virtual_memory().percent:.1f}%"},
+        {"Metric": "Swap Used", "Value": f"{psutil.swap_memory().percent:.1f}%"},
+        {"Metric": "Processes", "Value": str(len(psutil.pids()))},
+    ]
 
 
 @app.command(display="bar_chart", show_values=True)
@@ -93,7 +113,7 @@ def cpu(state, per_core: bool = False):
         }
 
 
-@app.command(display="box", title="Memory Usage")
+@app.command(display="table", headers=["Type", "Metric", "Value"])
 def memory(state):
     """Show memory statistics."""
     mem = psutil.virtual_memory()
@@ -106,16 +126,16 @@ def memory(state):
             bytes /= 1024.0
         return f"{bytes:.1f} PB"
 
-    return {
-        "Memory Total": format_bytes(mem.total),
-        "Memory Used": f"{format_bytes(mem.used)} ({mem.percent:.1f}%)",
-        "Memory Free": format_bytes(mem.free),
-        "Memory Available": format_bytes(mem.available),
-        "": "",  # Separator
-        "Swap Total": format_bytes(swap.total),
-        "Swap Used": f"{format_bytes(swap.used)} ({swap.percent:.1f}%)",
-        "Swap Free": format_bytes(swap.free),
-    }
+    return [
+        {"Type": "Memory", "Metric": "Total", "Value": format_bytes(mem.total)},
+        {"Type": "Memory", "Metric": "Used", "Value": f"{format_bytes(mem.used)} ({mem.percent:.1f}%)"},
+        {"Type": "Memory", "Metric": "Free", "Value": format_bytes(mem.free)},
+        {"Type": "Memory", "Metric": "Available", "Value": format_bytes(mem.available)},
+        {"Type": "", "Metric": "", "Value": ""},  # Separator
+        {"Type": "Swap", "Metric": "Total", "Value": format_bytes(swap.total)},
+        {"Type": "Swap", "Metric": "Used", "Value": f"{format_bytes(swap.used)} ({swap.percent:.1f}%)"},
+        {"Type": "Swap", "Metric": "Free", "Value": format_bytes(swap.free)},
+    ]
 
 
 @app.command(display="progress", show_percentage=True)
@@ -234,11 +254,11 @@ def temps(state):
     return result
 
 
-@app.command()
+@app.command(display="report")
 def report(state):
     """Generate a full system report."""
     return [
-        ("System Status", status(state), {"display": "box"}),
+        ("System Status", status(state), {"display": "table", "headers": ["Metric", "Value"]}),
         ("CPU Usage", cpu(state), {"display": "bar_chart"}),
         ("Top Processes", processes(state, limit=5), {"display": "table"}),
         ("Network", network(state), {"display": "table"}),

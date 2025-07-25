@@ -1,7 +1,7 @@
-from typing import Protocol, Any
+from typing import Protocol, Any, Callable
 import json
 
-from .types import CommandMeta
+from .types.core import CommandMeta
 
 
 class Formatter(Protocol):
@@ -9,6 +9,19 @@ class Formatter(Protocol):
 
     def format(self, data: Any, meta: CommandMeta) -> str:
         """Convert data to string representation."""
+        ...
+
+
+class ExtensibleFormatter(Formatter, Protocol):
+    """Protocol for formatters that support handler registration."""
+
+    def register(
+        self, display_type: str
+    ) -> Callable[
+        [Callable[[Any, CommandMeta, "ExtensibleFormatter"], str]],
+        Callable[[Any, CommandMeta, "ExtensibleFormatter"], str],
+    ]:
+        """Register a display handler."""
         ...
 
 

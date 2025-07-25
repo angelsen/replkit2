@@ -1,11 +1,14 @@
 """Core App class for ReplKit2."""
 
-from typing import Any, Callable
+from typing import Any, Callable, TYPE_CHECKING
 import inspect
 
-from .formatters import Formatter
-from .types import CommandMeta, FastMCPConfig, FastMCPDefaults
+from .formatters import Formatter, ExtensibleFormatter
+from .types.core import CommandMeta, FastMCPConfig, FastMCPDefaults
 from .textkit import TextFormatter, compose, hr, align
+
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
 
 
 class App:
@@ -27,7 +30,7 @@ class App:
         self.fastmcp_defaults = fastmcp or {}
         self._commands: dict[str, tuple[Callable[..., Any], CommandMeta]] = {}
 
-        self._fastmcp = None
+        self._fastmcp: FastMCP | None = None
         self._mcp_components = {"tools": {}, "resources": {}, "prompts": {}}
 
     def command(
@@ -154,10 +157,11 @@ class App:
         code.interact(local=namespace, banner=banner or "")
 
     @property
-    def mcp(self):
+    def mcp(self) -> "FastMCP":
         """Get or create FastMCP server from registered components."""
         if self._fastmcp is None:
             self._create_fastmcp()
+        assert self._fastmcp is not None, "FastMCP should be created"
         return self._fastmcp
 
     def _create_fastmcp(self):

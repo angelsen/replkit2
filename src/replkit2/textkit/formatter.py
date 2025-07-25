@@ -2,7 +2,7 @@
 
 from typing import Any, Callable, override
 
-from ..types import CommandMeta
+from ..types.core import CommandMeta
 from ..formatters import Formatter
 
 from .display import box, table, list_display, tree
@@ -13,13 +13,13 @@ class TextFormatter(Formatter):
     """Extensible text formatter with decorator-based handler registration."""
 
     def __init__(self):
-        self._handlers: dict[str, Callable[[Any, CommandMeta], str]] = {}
+        self._handlers: dict[str, Callable[[Any, CommandMeta, "TextFormatter"], str]] = {}
         self._register_defaults()
 
     def register(self, display_type: str):
         """Decorator to register a display handler."""
 
-        def decorator(func: Callable[[Any, CommandMeta], str]):
+        def decorator(func: Callable[[Any, CommandMeta, "TextFormatter"], str]):
             self._handlers[display_type] = func
             return func
 
@@ -33,7 +33,7 @@ class TextFormatter(Formatter):
 
         handler = self._handlers.get(meta.display)
         if handler:
-            return handler(data, meta)
+            return handler(data, meta, self)
         # Default: simple string representation
         return str(data)
 
@@ -41,7 +41,7 @@ class TextFormatter(Formatter):
         """Register built-in display handlers."""
 
         @self.register("table")
-        def handle_table(data: Any, meta: CommandMeta) -> str:  # pyright: ignore[reportUnusedFunction]
+        def handle_table(data: Any, meta: CommandMeta, formatter: "TextFormatter") -> str:  # pyright: ignore[reportUnusedFunction]
             headers = meta.display_opts.get("headers")
 
             # Handle list of dicts
@@ -58,13 +58,13 @@ class TextFormatter(Formatter):
             return str(data)
 
         @self.register("box")
-        def handle_box(data: Any, meta: CommandMeta) -> str:  # pyright: ignore[reportUnusedFunction]
+        def handle_box(data: Any, meta: CommandMeta, formatter: "TextFormatter") -> str:  # pyright: ignore[reportUnusedFunction]
             title = meta.display_opts.get("title")
             width = meta.display_opts.get("width")
             return box(str(data), title, width)
 
         @self.register("list")
-        def handle_list(data: Any, meta: CommandMeta) -> str:  # pyright: ignore[reportUnusedFunction]
+        def handle_list(data: Any, meta: CommandMeta, formatter: "TextFormatter") -> str:  # pyright: ignore[reportUnusedFunction]
             style = meta.display_opts.get("style", "bullet")
             numbered = meta.display_opts.get("numbered", False)
 
@@ -75,13 +75,13 @@ class TextFormatter(Formatter):
             return str(data)
 
         @self.register("tree")
-        def handle_tree(data: Any, _meta: CommandMeta) -> str:  # pyright: ignore[reportUnusedFunction]
+        def handle_tree(data: Any, _meta: CommandMeta, _formatter: "TextFormatter") -> str:  # pyright: ignore[reportUnusedFunction]
             if isinstance(data, dict):
                 return tree(data)
             return str(data)
 
         @self.register("bar_chart")
-        def handle_bar_chart(data: Any, meta: CommandMeta) -> str:  # pyright: ignore[reportUnusedFunction]
+        def handle_bar_chart(data: Any, meta: CommandMeta, formatter: "TextFormatter") -> str:  # pyright: ignore[reportUnusedFunction]
             width = meta.display_opts.get("width")
             show_values = meta.display_opts.get("show_values", True)
 
@@ -90,7 +90,7 @@ class TextFormatter(Formatter):
             return str(data)
 
         @self.register("progress")
-        def handle_progress(data: Any, meta: CommandMeta) -> str:  # pyright: ignore[reportUnusedFunction]
+        def handle_progress(data: Any, meta: CommandMeta, formatter: "TextFormatter") -> str:  # pyright: ignore[reportUnusedFunction]
             width = meta.display_opts.get("width")
             show_percentage = meta.display_opts.get("show_percentage", True)
 

@@ -22,7 +22,8 @@ Then use:
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from replkit2 import App, CommandMeta
+from replkit2 import App
+from replkit2.types.core import CommandMeta
 from replkit2.textkit import compose, box
 
 
@@ -41,12 +42,12 @@ app = App("todo", TodoState)
 
 # Register custom report display handler
 @app.formatter.register("report")
-def handle_report(data, meta):
+def handle_report(data, meta, formatter):
     """Handle multi-section report display."""
     sections = []
     for title, section_data, opts in data:
         section_meta = CommandMeta(display=opts.get("display"), display_opts=opts)
-        formatted = app.formatter.format(section_data, section_meta)
+        formatted = formatter.format(section_data, section_meta)
         if opts.get("box", True):
             sections.append(box(formatted, title=title))
         else:

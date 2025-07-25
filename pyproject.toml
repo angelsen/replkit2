@@ -1,6 +1,6 @@
 [project]
 name = "replkit2"
-version = "0.3.0"
+version = "0.4.0"
 description = "A minimal Python framework for building stateful REPL applications with ASCII display"
 readme = "README.txt"
 authors = [
@@ -44,11 +44,11 @@ dev = [
 [tool.ruff]
 line-length = 120
 include = ["src/**/*.py", "examples/**/*.py", "pyproject.toml"]
-exclude = ["**/_archive"]
+exclude = ["**/_archive", "**/test_files"]
 
 [tool.basedpyright]
 typeCheckingMode = "standard"
 pythonVersion = "3.12"
 pythonPlatform = "Linux"
 include = ["src/**/*.py"]
-exclude = ["**/_archive"]
+exclude = ["**/_archive", "**/test_files"]
