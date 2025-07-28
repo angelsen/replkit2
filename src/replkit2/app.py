@@ -3,12 +3,52 @@
 from typing import Any, Callable, TYPE_CHECKING
 import inspect
 
-from .formatters import Formatter, ExtensibleFormatter
+from .formatters import Formatter
 from .types.core import CommandMeta, FastMCPConfig, FastMCPDefaults
 from .textkit import TextFormatter, compose, hr, align
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
+
+
+class SilentResult:
+    """Wrapper that suppresses verbose REPL display while preserving data access."""
+
+    def __init__(self, data: Any, command_name: str | None = None):
+        self._data = data
+        self._command_name = command_name
+
+    def __repr__(self) -> str:
+        # Provide helpful summary instead of full data
+        prefix = f"{self._command_name}: " if self._command_name else "Result: "
+
+        if isinstance(self._data, list):
+            return f"<{prefix}{len(self._data)} items>"
+        elif isinstance(self._data, dict):
+            return f"<{prefix}{len(self._data)} fields>"
+        elif isinstance(self._data, str):
+            if len(self._data) > 50:
+                return f"<{prefix}{len(self._data)} chars>"
+            return f"<{prefix}{self._data!r}>"
+        else:
+            return f"<{prefix}{type(self._data).__name__}>"
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._data, name)
+
+    def __getitem__(self, key: Any) -> Any:
+        return self._data[key]
+
+    def __iter__(self):
+        return iter(self._data)
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+    @property
+    def data(self) -> Any:
+        """Access the wrapped data directly."""
+        return self._data
 
 
 class App:
@@ -74,7 +114,7 @@ class App:
             return decorator(func)
 
     def execute(self, command_name: str, *args, **kwargs) -> Any:
-        """Execute a command and return formatted result."""
+        """Execute a command and return raw result."""
         if command_name not in self._commands:
             raise ValueError(f"Unknown command: {command_name}")
 
@@ -85,7 +125,7 @@ class App:
         else:
             result = func(*args, **kwargs)
 
-        return self.formatter.format(result, meta)
+        return result
 
     def list_commands(self) -> list[str]:
         """Get list of available commands (excluding aliases)."""
@@ -107,7 +147,10 @@ class App:
             def make_wrapper(cmd_name: str) -> Callable[..., Any]:
                 def wrapper(*args, **kwargs):
                     result = self.execute(cmd_name, *args, **kwargs)
-                    print(result)
+                    _, meta = self._commands[cmd_name]
+                    formatted = self.formatter.format(result, meta)
+                    print(formatted)
+                    return SilentResult(result, cmd_name) if result is not None else None
 
                 wrapper.__name__ = cmd_name
                 wrapper.__doc__ = func.__doc__
@@ -126,7 +169,9 @@ class App:
 
             def help_wrapper():
                 result = self.execute("help")
-                print(result)
+                formatted = self.formatter.format(result, meta)
+                print(formatted)
+                return SilentResult(result, "help") if result is not None else None
 
             help_wrapper.__name__ = "help"
             help_wrapper.__doc__ = "Show available commands."
