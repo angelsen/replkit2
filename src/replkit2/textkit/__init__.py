@@ -21,6 +21,9 @@ from .icons import ICONS
 # Formatter for ReplKit2
 from .formatter import TextFormatter
 
+# Markdown
+from .markdown import markdown, MarkdownElement
+
 __all__ = [
     # Config
     "config",
@@ -47,4 +50,7 @@ __all__ = [
     "ICONS",
     # Formatter
     "TextFormatter",
+    # Markdown
+    "markdown",
+    "MarkdownElement",
 ]

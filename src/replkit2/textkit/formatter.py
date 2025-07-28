@@ -7,6 +7,7 @@ from ..formatters import Formatter
 
 from .display import box, table, list_display, tree
 from .charts import bar_chart, progress
+from .markdown import format_markdown
 
 
 class TextFormatter(Formatter):
@@ -100,3 +101,11 @@ class TextFormatter(Formatter):
             elif isinstance(data, (int, float)):
                 return progress(data, width=width, show_percentage=show_percentage)
             return str(data)
+
+        @self.register("markdown")
+        def handle_markdown(data: Any, meta: CommandMeta, formatter: "TextFormatter") -> str:  # pyright: ignore[reportUnusedFunction]
+            # Pass data through to the markdown formatter
+            if isinstance(data, dict):
+                return format_markdown(data, meta, formatter)
+            # If data is not a dict, wrap it in elements
+            return format_markdown({"elements": [{"type": "text", "content": str(data)}]}, meta, formatter)
