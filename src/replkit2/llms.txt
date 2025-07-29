@@ -165,6 +165,7 @@ def dashboard(state):
 - `list`: List of strings → bullet list
 - `bar_chart`: Dict with numeric values → horizontal bars
 - `progress`: {"value": n, "total": m} → progress bar
+- `markdown`: Dict with "elements" and optional "frontmatter" → formatted markdown
 
 ## FastMCP Type Reference
 
@@ -212,3 +213,72 @@ def search(state, query: str):
 ```
 
 Stubs appear as regular resources with `:param` syntax and return help info when called.
+
+## Markdown Display
+
+Generate formatted markdown output with frontmatter and various elements:
+
+```python
+# Using display type
+@app.command(display="markdown")
+def show_report(state):
+    return {
+        "frontmatter": {
+            "title": "Report",
+            "date": "2025-01-28"
+        },
+        "elements": [
+            {"type": "heading", "content": "Summary", "level": 2},
+            {"type": "text", "content": "This is the report content."},
+            {"type": "code_block", "content": "print('Hello')", "language": "python"},
+            {"type": "blockquote", "content": "Important note"},
+            {"type": "list", "items": ["Item 1", "Item 2"], "ordered": True}
+        ]
+    }
+
+# Using builder
+from replkit2.textkit import markdown
+
+@app.command(display="markdown")
+def show_doc(state):
+    return (markdown()
+        .frontmatter(author="ReplKit2", version="1.0")
+        .heading("Documentation")
+        .text("Welcome to the documentation.")
+        .code_block("app = App('myapp', State)", language="python")
+        .build())
+```
+
+### Custom Markdown Elements
+
+Extend markdown with custom elements by subclassing `MarkdownElement`:
+
+```python
+from replkit2.textkit import MarkdownElement
+
+class Alert(MarkdownElement):
+    element_type = "alert"
+    
+    def __init__(self, content: str, level: str = "info"):
+        self.content = content
+        self.level = level
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> "Alert":
+        return cls(data.get("content", ""), data.get("level", "info"))
+    
+    def render(self) -> str:
+        return f"!!! {self.level}\n    {self.content}"
+
+# Now use in commands
+@app.command(display="markdown")
+def show_alert(state):
+    return {
+        "elements": [
+            {"type": "heading", "content": "Alert Demo"},
+            {"type": "alert", "content": "This is important!", "level": "warning"}
+        ]
+    }
+```
+
+Elements auto-register when defined - no manual registration needed.

@@ -7,6 +7,7 @@ ASCII display toolkit bundled with ReplKit2.
 - **Display**: `box`, `table`, `tree`, `list_display`
 - **Charts**: `bar_chart`, `progress`
 - **Layout**: `compose`, `hr`, `align`, `wrap`
+- **Markdown**: `markdown` builder and `MarkdownElement` base class
 - **Config**: Global width setting (default 80)
 
 ## Basic Usage
@@ -111,9 +112,54 @@ from replkit2.textkit import config
 config.width = 100
 ```
 
+## Markdown Generation
+
+Generate formatted markdown with frontmatter and elements:
+
+```python
+from replkit2.textkit import markdown, MarkdownElement
+
+# Using builder
+doc = (markdown()
+    .frontmatter(title="My Document", author="Me")
+    .heading("Introduction")
+    .text("This is a markdown document.")
+    .code_block("print('Hello, World!')", language="python")
+    .blockquote("Important note here")
+    .list(["First item", "Second item"], ordered=True)
+    .build())
+
+# Returns dict with 'elements' and 'frontmatter' fields
+# Use with display="markdown" in ReplKit2 commands
+```
+
+### Custom Markdown Elements
+
+Create custom elements by subclassing `MarkdownElement`:
+
+```python
+class Admonition(MarkdownElement):
+    element_type = "admonition"  # Auto-registers when class is defined
+    
+    def __init__(self, content: str, kind: str = "note"):
+        self.content = content
+        self.kind = kind
+    
+    @classmethod
+    def from_dict(cls, data: dict) -> "Admonition":
+        return cls(data.get("content", ""), data.get("kind", "note"))
+    
+    def render(self) -> str:
+        return f"!!! {self.kind}\n    {self.content}"
+
+# Use generic element() method for custom types
+doc = markdown().element("admonition", content="Custom element", kind="tip").build()
+```
+
 ## Philosophy
 
 - ASCII-only output for maximum compatibility
 - Bundled with ReplKit2, not a separate package
 - Display functions return strings
 - Composable and extensible
+- Self-registering element system for markdown

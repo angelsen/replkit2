@@ -57,6 +57,16 @@ Demonstrates advanced formatter patterns:
 
 Key patterns: formatter parameter usage, display composition
 
+### markdown_demo.py - Markdown Formatter Demo
+Showcases the new markdown display type:
+- YAML frontmatter for metadata
+- Standard markdown elements (headings, code blocks, lists, etc.)
+- Custom element creation with auto-registration
+- Builder pattern for fluent document construction
+- Integration with other display types
+
+Key patterns: markdown builder, custom MarkdownElement subclassing
+
 ### todo_api.py - REST API Integration
 Same todo app exposed as FastAPI:
 - Shared state between REPL and API
@@ -153,6 +163,7 @@ json_api = app.using(JSONFormatter())
 | `list` | List of strings | Bullet list |
 | `bar_chart` | Dict of numbers | Horizontal bar chart |
 | `progress` | {value, total} | Progress bar |
+| `markdown` | {elements, frontmatter} | Formatted markdown with YAML frontmatter |
 
 ## FastMCP Types
 

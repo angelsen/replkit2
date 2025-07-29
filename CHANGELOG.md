@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Markdown formatter with support for frontmatter and common markdown elements
+- Self-registering markdown element system using `__init_subclass__`
+- `MarkdownElement` base class for creating custom markdown elements
+- `markdown()` builder utility for constructing markdown data structures
+- Core markdown elements: text, heading, code_block, blockquote, list, raw
+- Type-safe implementation with proper annotations
+
 ## [0.4.0] - 2025-07-25
 
 ### Changed
