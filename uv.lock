@@ -505,6 +505,9 @@ api = [
     { name = "fastapi" },
     { name = "uvicorn" },
 ]
+cli = [
+    { name = "typer" },
+]
 dev = [
     { name = "basedpyright" },
     { name = "ruff" },
@@ -534,9 +537,10 @@ requires-dist = [
     { name = "psutil", marker = "extra == 'examples'", specifier = ">=7.0.0" },
     { name = "pygls", marker = "extra == 'lsp'", specifier = ">=1.3.1" },
     { name = "ruff", marker = "extra == 'dev'" },
+    { name = "typer", marker = "extra == 'cli'", specifier = ">=0.16.0" },
     { name = "uvicorn", marker = "extra == 'api'" },
 ]
-provides-extras = ["examples", "api", "mcp", "dev", "lsp"]
+provides-extras = ["examples", "api", "mcp", "dev", "lsp", "cli"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "basedpyright", specifier = ">=1.29.5" }]

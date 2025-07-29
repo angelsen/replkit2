@@ -11,7 +11,9 @@
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
-Flask-style REPL applications with rich ASCII output and MCP integration.
+Flask-style REPL applications with rich ASCII output, MCP integration, and CLI
+
+support.
 
 +-- H2 ------------------------------------------------------------------------+
 | Quick Start                                                                  |
@@ -27,8 +29,12 @@ Flask-style REPL applications with rich ASCII output and MCP integration.
 | uv run python examples/monitor.py                                            |
 | uv run python examples/notes_mcp.py                                          |
 |                                                                              |
-| # Run with MCP                                                               |
+| # Run with MCP server                                                        |
 | uv run python examples/notes_mcp.py --mcp                                    |
+|                                                                              |
+| # Run as CLI                                                                 |
+| uv run python examples/typer_demo.py add "Buy milk"                          |
+| uv run python examples/typer_demo.py list                                    |
 +------------------------------------------------------------------------------+
 
 +-- H2 ------------------------------------------------------------------------+
@@ -49,9 +55,7 @@ Full-featured task management with multiple views:
 * Custom multi-section reports
 * State persistence between commands
 
-Key patterns: state management, display types, custom formatters with
-
-3-parameter signature
+Key patterns: state management, display types, custom formatters
 
 +-- H3 ------------------------------------------------------------------------+
 | monitor.py - System Monitor                                                  |
@@ -81,6 +85,36 @@ Note-taking app exposing MCP tools, resources, and prompts:
 * Dual-mode: REPL or MCP server
 
 Key patterns: FastMCP configuration, URI templates, typed configs
+
++-- H3 ------------------------------------------------------------------------+
+| typer_demo.py - Typer CLI Integration Demo                                   |
++------------------------------------------------------------------------------+
+--------------------------------------------------------------------------------
+
+Todo app with CLI, REPL, and persistent JSON state:
+
+* Typer CLI mode with traditional command-line interface
+* Commands work in both REPL and CLI modes
+* JSON persistence in `examples/data/todo-cli-state.json`
+* Custom command names and help text via `typer` parameter
+* Shows the "write once, deploy everywhere" pattern
+
+Key patterns: Typer configuration, state persistence, multi-mode deployment
+
++-- H3 ------------------------------------------------------------------------+
+| markdown_demo.py - Markdown Formatter Demo                                   |
++------------------------------------------------------------------------------+
+--------------------------------------------------------------------------------
+
+Showcases the markdown display type:
+
+* YAML frontmatter for metadata
+* Standard markdown elements (headings, code blocks, lists, etc.)
+* Custom element creation with auto-registration
+* Builder pattern for fluent document construction
+* Integration with other display types
+
+Key patterns: markdown builder, custom MarkdownElement subclassing
 
 +-- H3 ------------------------------------------------------------------------+
 | formatter_demo.py - Custom Formatter Examples                                |
@@ -151,16 +185,18 @@ Run: [uv run --extra api uvicorn examples.todo_api:app]
 +------------------------------------------------------------------------------+
 
 +-- H3 ------------------------------------------------------------------------+
-| FastMCP Resource                                                             |
+| Typer CLI Command                                                            |
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
 +-- CODE ----------------------------------------------------------------------+
-| @app.command(fastmcp={"type": "resource", "mime_type": "application/json"})  |
-| def task_stats(state):                                                       |
-|     # Auto-generates URI: app://task_stats                                   |
-| return {"total": len(state.tasks), "done": sum(1 for t in state.tasks if     |
-| t.done)}                                                                     |
+| @app.command(                                                                |
+|     display="table",                                                         |
+|     typer={"name": "ls", "help": "List all tasks"}                           |
+| )                                                                            |
+| def list_tasks(state, done: bool = False):                                   |
+|     tasks = [t for t in state.tasks if not done or t.done]                   |
+|     return [{"ID": t.id, "Task": t.text} for t in tasks]                     |
 +------------------------------------------------------------------------------+
 
 +-- H3 ------------------------------------------------------------------------+
@@ -169,15 +205,12 @@ Run: [uv run --extra api uvicorn examples.todo_api:app]
 --------------------------------------------------------------------------------
 
 +-- CODE ----------------------------------------------------------------------+
-| from replkit2.types.core import CommandMeta                                  |
-| from replkit2.textkit import compose, box                                    |
-|                                                                              |
 | @app.formatter.register("report")                                            |
 | def handle_report(data, meta, formatter):                                    |
 |     """Custom formatters receive (data, meta, formatter)."""                 |
 |     sections = []                                                            |
-|     for title, section_data, opts in data:                                   |
-| section_meta = CommandMeta(display=opts.get("display"), display_opts=opts)   |
+|     for title, section_data, display_type in data:                           |
+|         section_meta = CommandMeta(display=display_type)                     |
 |         formatted = formatter.format(section_data, section_meta)             |
 |         sections.append(box(formatted, title=title))                         |
 |     return compose(*sections, spacing=1)                                     |
@@ -202,13 +235,26 @@ Run: [uv run --extra api uvicorn examples.todo_api:app]
 * Pretty-printed output
 
 +-- H3 ------------------------------------------------------------------------+
+| CLI Mode (Typer)                                                             |
++------------------------------------------------------------------------------+
+--------------------------------------------------------------------------------
+
++-- CODE ----------------------------------------------------------------------+
+| app.cli()                                                                    |
++------------------------------------------------------------------------------+
+
+* Traditional command-line interface
+* `--help` for each command
+* Formatted output based on display type
+* Works with persistent state (e.g., JSON files)
+
++-- H3 ------------------------------------------------------------------------+
 | MCP Server Mode                                                              |
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
 +-- CODE ----------------------------------------------------------------------+
-| if "--mcp" in sys.argv:                                                      |
-|     app.mcp.run()                                                            |
+| app.mcp.run()                                                                |
 +------------------------------------------------------------------------------+
 
 * Exposes tools/resources/prompts via MCP
@@ -221,7 +267,7 @@ Run: [uv run --extra api uvicorn examples.todo_api:app]
 --------------------------------------------------------------------------------
 
 +-- CODE ----------------------------------------------------------------------+
-| json_api = app.using(JSONFormatter())                                        |
+| json_app = app.using(JSONFormatter())                                        |
 | # Use with FastAPI/Flask/etc                                                 |
 +------------------------------------------------------------------------------+
 
@@ -234,26 +280,44 @@ Run: [uv run --extra api uvicorn examples.todo_api:app]
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
-Type         Input Data                      Output                          
------------  ------------------------------  --------------------------------
-`table`      List of dicts or list of lists  Formatted table with headers    
-`box`        String                          Bordered box with optional title
-`tree`       Nested dict                     Hierarchical tree view          
-`list`       List of strings                 Bullet list                     
-`bar_chart`  Dict of numbers                 Horizontal bar chart            
-`progress`   {value, total}                  Progress bar                    
+Type         Input Data                      Output                                  
+-----------  ------------------------------  ----------------------------------------
+`table`      List of dicts or list of lists  Formatted table with headers            
+`box`        String                          Bordered box with optional title        
+`tree`       Nested dict                     Hierarchical tree view                  
+`list`       List of strings                 Bullet list                             
+`bar_chart`  Dict of numbers                 Horizontal bar chart                    
+`progress`   {value, total}                  Progress bar                            
+`markdown`   {elements, frontmatter}         Formatted markdown with YAML frontmatter
 
 +-- H2 ------------------------------------------------------------------------+
-| FastMCP Types                                                                |
+| Configuration Options                                                        |
 +------------------------------------------------------------------------------+
 --------------------------------------------------------------------------------
 
-Config                  Purpose            Example URI          
-----------------------  -----------------  ---------------------
-`{"type": "tool"}`      Actions/commands   N/A                  
-`{"type": "resource"}`  Readable data      `app://get_item/{id}`
-`{"type": "prompt"}`    Prompt templates   N/A                  
-`{"enabled": False}`    REPL-only command  N/A                  
++-- H3 ------------------------------------------------------------------------+
+| FastMCP Config                                                               |
++------------------------------------------------------------------------------+
+--------------------------------------------------------------------------------
+
+Option                  Purpose           Example              
+----------------------  ----------------  ---------------------
+`{"type": "tool"}`      Actions/commands  CLI-like operations  
+`{"type": "resource"}`  Readable data     `app://get_item/{id}`
+`{"type": "prompt"}`    Prompt templates  Context injection    
+`{"enabled": False}`    Exclude from MCP  REPL-only commands   
+
++-- H3 ------------------------------------------------------------------------+
+| Typer Config                                                                 |
++------------------------------------------------------------------------------+
+--------------------------------------------------------------------------------
+
+Option                Purpose             Example           
+--------------------  ------------------  ------------------
+`{"name": "cmd"}`     CLI command name    `list` → `ls`     
+`{"help": "text"}`    Override help text  Better CLI docs   
+`{"hidden": True}`    Hide from help      Admin commands    
+`{"enabled": False}`  Exclude from CLI    REPL-only commands
 
 +-- H2 ------------------------------------------------------------------------+
 | Tips                                                                         |
@@ -263,8 +327,9 @@ Config                  Purpose            Example URI
 1. **State First**: Every command receives state as first parameter
 2. **Return Data**: Commands return data, not formatted strings
 3. **Display Hints**: Match return type to display type
-4. **MCP URIs**: Auto-generated from function name and parameters
-5. **Type Safety**: Import from `replkit2.types.core` for proper types
+4. **Multi-Mode**: Write once, run as REPL/CLI/MCP
+5. **Type Safety**: Import types from `replkit2.types.core`
+6. **Persistence**: Use JSON/pickle for CLI state between runs
 
 ================================================================================
 

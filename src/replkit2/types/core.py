@@ -42,9 +42,31 @@ class FastMCPDefaults(TypedDict, total=False):
     enabled: bool
 
 
+class TyperConfig(TypedDict):
+    """Configuration for Typer CLI integration."""
+
+    enabled: NotRequired[bool]
+    name: NotRequired[str]
+    help: NotRequired[str]
+    epilog: NotRequired[str]
+    short_help: NotRequired[str]
+    hidden: NotRequired[bool]
+    rich_help_panel: NotRequired[str]
+
+
+class TyperDisabled(TypedDict):
+    """Exclude command from CLI."""
+
+    enabled: Literal[False]
+
+
+TyperCLI = TyperConfig | TyperDisabled
+
+
 @dataclass
 class CommandMeta:
     display: str | None = None
     display_opts: dict[str, Any] = field(default_factory=dict)
     aliases: list[str] = field(default_factory=list)
     fastmcp: FastMCPConfig | None = None
+    typer: TyperCLI | None = None

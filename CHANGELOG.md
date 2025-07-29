@@ -7,13 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-01-28
+
 ### Added
+- Typer CLI integration for traditional command-line interfaces
+  - New `typer` parameter in `@app.command()` decorator
+  - `TyperConfig` and `TyperDisabled` types for configuration
+  - `app.cli()` property for accessing Typer instance
+  - Commands automatically work in REPL, CLI, and MCP modes
+  - Example: `typer_demo.py` showing todo app with JSON persistence
 - Markdown formatter with support for frontmatter and common markdown elements
-- Self-registering markdown element system using `__init_subclass__`
-- `MarkdownElement` base class for creating custom markdown elements
-- `markdown()` builder utility for constructing markdown data structures
-- Core markdown elements: text, heading, code_block, blockquote, list, raw
-- Type-safe implementation with proper annotations
+  - Self-registering markdown element system using `__init_subclass__`
+  - `MarkdownElement` base class for creating custom markdown elements
+  - `markdown()` builder utility for constructing markdown data structures
+  - Core markdown elements: text, heading, code_block, blockquote, list, raw
+  - Type-safe implementation with proper annotations
+
+### Fixed
+- Consistent None-check patterns in `app.py` for lazy-initialized attributes
 
 ## [0.4.0] - 2025-07-25
 

@@ -4,11 +4,12 @@ from typing import Any, Callable, TYPE_CHECKING
 import inspect
 
 from .formatters import Formatter
-from .types.core import CommandMeta, FastMCPConfig, FastMCPDefaults
+from .types.core import CommandMeta, FastMCPConfig, FastMCPDefaults, TyperCLI
 from .textkit import TextFormatter, compose, hr, align
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
+    from typer import Typer
 
 
 class SilentResult:
@@ -73,6 +74,9 @@ class App:
         self._fastmcp: FastMCP | None = None
         self._mcp_components = {"tools": {}, "resources": {}, "prompts": {}}
 
+        self._typer: Typer | None = None
+        self._cli_commands: dict[str, tuple[Callable[..., Any], CommandMeta]] = {}
+
     def command(
         self,
         func: Callable | None = None,
@@ -80,6 +84,7 @@ class App:
         display: str | None = None,
         aliases: list[str] | None = None,
         fastmcp: FastMCPConfig | None = None,
+        typer: TyperCLI | None = None,
         **display_opts: Any,
     ) -> Callable[[Callable], Callable] | Callable:
         """
@@ -90,11 +95,14 @@ class App:
             display: Display type for output formatting
             aliases: Alternative names for the command
             fastmcp: FastMCP configuration dict
+            typer: Typer CLI configuration dict
             **display_opts: Additional display options
         """
 
         def decorator(f: Callable) -> Callable:
-            meta = CommandMeta(display=display, display_opts=display_opts, aliases=aliases or [], fastmcp=fastmcp)
+            meta = CommandMeta(
+                display=display, display_opts=display_opts, aliases=aliases or [], fastmcp=fastmcp, typer=typer
+            )
 
             self._commands[f.__name__] = (f, meta)
 
@@ -105,6 +113,10 @@ class App:
                 mcp_type = fastmcp.get("type")
                 if mcp_type in ("tool", "resource", "prompt"):
                     self._mcp_components[f"{mcp_type}s"][f.__name__] = (f, meta)
+
+            # Track CLI commands
+            if not typer or typer.get("enabled", True):
+                self._cli_commands[f.__name__] = (f, meta)
 
             return f
 
@@ -361,3 +373,82 @@ class App:
                 name=f"{func.__name__}_example",
                 description=f"Example usage for {description}" if description else f"Example usage for {uri_template}",
             )(stub_func)
+
+    @property
+    def cli(self) -> "Typer":
+        """Get or create Typer CLI from registered commands."""
+        if self._typer is None:
+            self._create_typer()
+        assert self._typer is not None, "Typer should be created"
+        return self._typer
+
+    def _create_typer(self):
+        """Lazily create Typer CLI."""
+        try:
+            from typer import Typer
+        except ImportError:
+            raise ImportError("Typer is required for CLI features. Install it with: pip install typer")
+
+        self._typer = Typer(
+            name=self.name,
+            help=f"{self.name} - ReplKit2 application",
+            rich_markup_mode="rich",
+        )
+
+        # Register commands
+        for name, (func, meta) in self._cli_commands.items():
+            if func.__name__ != name:  # Skip aliases for now
+                continue
+            self._register_typer_command(name, func, meta)
+
+    def _register_typer_command(self, name: str, func: Callable, meta: CommandMeta):
+        """Register a command with Typer."""
+        assert self._typer is not None, "Typer must be initialized"
+
+        typer_config = meta.typer or {}
+
+        # Create wrapper that handles state and formatting
+        wrapper = self._create_cli_wrapper(func, meta)
+
+        # Build Typer command decorator arguments
+        command_args = {
+            "name": typer_config.get("name", name.replace("_", "-")),
+            "help": typer_config.get("help", func.__doc__),
+            "epilog": typer_config.get("epilog"),
+            "short_help": typer_config.get("short_help"),
+            "hidden": typer_config.get("hidden", False),
+            "rich_help_panel": typer_config.get("rich_help_panel"),
+        }
+
+        # Filter out None values
+        command_args = {k: v for k, v in command_args.items() if v is not None}
+
+        # Register with Typer
+        self._typer.command(**command_args)(wrapper)
+
+    def _create_cli_wrapper(self, func: Callable, meta: CommandMeta) -> Callable:
+        """Create wrapper that handles state injection and output formatting for CLI."""
+        import functools
+
+        if self._state is not None:
+            # Reuse the stateful wrapper
+            wrapper = self._create_stateful_wrapper(func)
+        else:
+            wrapper = func
+
+        @functools.wraps(wrapper)
+        def cli_wrapper(*args, **kwargs):
+            # Execute command
+            result = wrapper(*args, **kwargs)
+
+            # Format and print output
+            if result is not None:
+                if meta.display:
+                    formatted = self.formatter.format(result, meta)
+                    print(formatted)
+                else:
+                    print(result)
+
+            return result
+
+        return cli_wrapper

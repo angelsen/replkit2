@@ -1,6 +1,6 @@
 # ReplKit2 Guide
 
-Flask-style framework for building stateful REPL applications with rich ASCII output and MCP integration.
+Flask-style framework for building stateful REPL applications with rich ASCII output, MCP integration, and CLI support.
 
 ## Basic App Structure
 
@@ -43,6 +43,29 @@ def hierarchy(state):
 def completion(state):
     done = sum(1 for i in state.items if i["status"] == "done")
     return {"value": done, "total": len(state.items)}
+
+# Markdown display
+@app.command(display="markdown")
+def report(state):
+    return {
+        "frontmatter": {"title": "Status Report", "date": "2025-01-28"},
+        "elements": [
+            {"type": "heading", "content": "Overview", "level": 2},
+            {"type": "text", "content": f"Total items: {len(state.items)}"},
+            {"type": "code_block", "content": "print('Hello')", "language": "python"}
+        ]
+    }
+```
+
+## Running the App
+
+```python
+if __name__ == "__main__":
+    import sys
+    if "--mcp" in sys.argv:
+        app.mcp.run()  # MCP server mode
+    else:
+        app.run(title="My App")  # REPL mode (default)
 ```
 
 ## FastMCP Integration
@@ -92,32 +115,42 @@ def debug(state):
     return vars(state)
 ```
 
-## Running the App
+## Typer CLI Integration
 
 ```python
-if __name__ == "__main__":
-    import sys
-    if "--mcp" in sys.argv:
-        app.mcp.run()  # MCP server mode
-    else:
-        app.run(title="My App")  # REPL mode
-```
+# Basic CLI command
+@app.command(typer={"help": "Add a new task to the list"})
+def add_task(state, text: str, priority: str = "normal"):
+    """Add task with optional priority."""
+    task = {"id": state.next_id, "text": text, "priority": priority}
+    state.tasks.append(task)
+    state.next_id += 1
+    return f"Added task #{task['id']}"
 
-## Type-Safe MCP Config
+# Hidden from CLI
+@app.command(typer={"enabled": False})
+def debug(state):
+    """Debug command only available in REPL."""
+    return vars(state)
 
-```python
-# Full IDE support with typed configs
+# Custom CLI configuration
 @app.command(
     display="table",
-    fastmcp={
-        "type": "tool",
-        "tags": {"write", "important"},
-        "description": "Override the docstring"
+    typer={
+        "name": "ls",  # Short name for CLI
+        "help": "List all tasks",
+        "epilog": "Use --done to filter completed tasks",
+        "rich_help_panel": "Task Management"
     }
 )
-def important_action(state, data: str):
-    """This docstring is overridden by fastmcp.description."""
-    return process(data)
+def list_tasks(state, done: bool = False):
+    """List tasks with optional filtering."""
+    tasks = [t for t in state.tasks if not done or t.get("done")]
+    return [{"ID": t["id"], "Task": t["text"], "Done": "✓" if t.get("done") else ""} 
+            for t in tasks]
+
+# Use CLI mode
+app.cli()
 ```
 
 ## Custom Display Components
@@ -147,96 +180,9 @@ def dashboard(state):
     }
 ```
 
-## Key Patterns
-
-1. **State**: First parameter of every command
-2. **Display**: Return data matching display type (list of dicts for tables)
-3. **Custom formatters**: Receive three parameters: `(data, meta, formatter)`
-4. **Type imports**: Use explicit paths: `from replkit2.types.core import CommandMeta`
-5. **FastMCP**: Dict with "type" field minimum, inherits app defaults
-6. **URIs**: Auto-generated from function signature and parameters
-7. **Dual Mode**: Same app works as REPL and MCP server
-
-## Display Type Reference
-
-- `table`: List of dicts or list of lists → formatted table
-- `box`: String → bordered box
-- `tree`: Nested dict → hierarchical view
-- `list`: List of strings → bullet list
-- `bar_chart`: Dict with numeric values → horizontal bars
-- `progress`: {"value": n, "total": m} → progress bar
-- `markdown`: Dict with "elements" and optional "frontmatter" → formatted markdown
-
-## FastMCP Type Reference
-
-- `{"type": "tool"}`: Callable actions
-- `{"type": "resource"}`: Readable data (GET-like)
-- `{"type": "prompt"}`: Prompt templates
-- `{"enabled": False}`: Exclude from MCP
-- `{"uri": "custom://path"}`: Override auto-generated URI
-- `{"stub": True}`: Generate stub resource for template URIs
-- `{"stub": {"response": {...}}}`: Custom stub response
-
-## Stub Resources for MCP Clients
-
-Some MCP clients don't support resource templates. Use stubs to provide examples:
+## Markdown Builder
 
 ```python
-# Basic stub - shows template and description
-@app.command(fastmcp={"type": "resource", "stub": True})
-def get_note(state, id: int):
-    """Get note by ID."""
-    return state.notes[id]
-# Creates: notes://get_note/{id} (template)
-# Creates: notes://get_note/:id (stub showing usage)
-
-# Custom stub response
-@app.command(fastmcp={
-    "type": "resource",
-    "stub": {
-        "response": {
-            "example": "notes://get_note/123",
-            "usage": "Use list_notes to find IDs",
-            "hint": "IDs are integers from 1-1000"
-        }
-    }
-})
-def get_note(state, id: int):
-    """Get note by ID."""
-    return state.notes[id]
-
-# Disable stub for specific resource
-@app.command(fastmcp={"type": "resource", "stub": False})
-def search(state, query: str):
-    """Search notes."""
-    return results
-```
-
-Stubs appear as regular resources with `:param` syntax and return help info when called.
-
-## Markdown Display
-
-Generate formatted markdown output with frontmatter and various elements:
-
-```python
-# Using display type
-@app.command(display="markdown")
-def show_report(state):
-    return {
-        "frontmatter": {
-            "title": "Report",
-            "date": "2025-01-28"
-        },
-        "elements": [
-            {"type": "heading", "content": "Summary", "level": 2},
-            {"type": "text", "content": "This is the report content."},
-            {"type": "code_block", "content": "print('Hello')", "language": "python"},
-            {"type": "blockquote", "content": "Important note"},
-            {"type": "list", "items": ["Item 1", "Item 2"], "ordered": True}
-        ]
-    }
-
-# Using builder
 from replkit2.textkit import markdown
 
 @app.command(display="markdown")
@@ -246,12 +192,11 @@ def show_doc(state):
         .heading("Documentation")
         .text("Welcome to the documentation.")
         .code_block("app = App('myapp', State)", language="python")
+        .list(["Feature 1", "Feature 2"], ordered=True)
         .build())
 ```
 
-### Custom Markdown Elements
-
-Extend markdown with custom elements by subclassing `MarkdownElement`:
+## Custom Markdown Elements
 
 ```python
 from replkit2.textkit import MarkdownElement
@@ -281,4 +226,73 @@ def show_alert(state):
     }
 ```
 
-Elements auto-register when defined - no manual registration needed.
+## Key Patterns
+
+1. **State**: First parameter of every command
+2. **Display**: Return data matching display type (list of dicts for tables)
+3. **Custom formatters**: Receive three parameters: `(data, meta, formatter)`
+4. **Type imports**: Use explicit paths: `from replkit2.types.core import CommandMeta`
+5. **FastMCP**: Dict with "type" field minimum, inherits app defaults
+6. **Typer**: Dict with configuration options, set `enabled: False` to exclude from CLI
+7. **URIs**: Auto-generated from function signature and parameters
+8. **Three Modes**: Same app works as REPL, CLI, and MCP server
+
+## Display Type Reference
+
+- `table`: List of dicts or list of lists → formatted table
+- `box`: String → bordered box
+- `tree`: Nested dict → hierarchical view
+- `list`: List of strings → bullet list
+- `bar_chart`: Dict with numeric values → horizontal bars
+- `progress`: {"value": n, "total": m} → progress bar
+- `markdown`: Dict with "elements" and optional "frontmatter" → formatted markdown
+
+## Configuration Type Reference
+
+### FastMCP Types
+- `{"type": "tool"}`: Callable actions
+- `{"type": "resource"}`: Readable data (GET-like)
+- `{"type": "prompt"}`: Prompt templates
+- `{"enabled": False}`: Exclude from MCP
+- `{"uri": "custom://path"}`: Override auto-generated URI
+- `{"stub": True}`: Generate stub resource for template URIs
+
+### Typer Types
+- `{"name": "cmd-name"}`: Override command name for CLI
+- `{"help": "Help text"}`: Override docstring for CLI help
+- `{"hidden": True}`: Hide from CLI help
+- `{"enabled": False}`: Exclude from CLI
+- `{"rich_help_panel": "Panel Name"}`: Group commands in help
+
+## State Persistence
+
+```python
+# For CLI commands that need persistent state
+import json
+from pathlib import Path
+
+@dataclass
+class TodoState:
+    tasks: list[dict] = field(default_factory=list)
+    next_id: int = 1
+    
+    @classmethod
+    def load(cls, path: str) -> "TodoState":
+        if Path(path).exists():
+            with open(path) as f:
+                data = json.load(f)
+            return cls(**data)
+        return cls()
+    
+    def save(self, path: str):
+        with open(path, "w") as f:
+            json.dump(asdict(self), f)
+
+# In commands
+@app.command()
+def add(state, text: str):
+    state.tasks.append({"id": state.next_id, "text": text})
+    state.next_id += 1
+    state.save("todo-state.json")
+    return f"Added task #{state.next_id - 1}"
+```
