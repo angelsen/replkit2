@@ -6,6 +6,7 @@ class FastMCPTool(TypedDict):
     type: Literal["tool"]
     tags: NotRequired[set[str]]
     description: NotRequired[str]
+    mime_type: NotRequired[str]
     enabled: NotRequired[bool]
 
 

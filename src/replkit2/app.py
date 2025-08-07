@@ -233,12 +233,22 @@ class App:
         for name, (func, meta) in self._mcp_components["tools"].items():
             config = {**self.fastmcp_defaults, **meta.fastmcp}
             wrapper = self._create_stateful_wrapper(func)
-            self._fastmcp.tool(
-                name=config.get("name", name),
-                description=config.get("description", func.__doc__),
-                tags=config.get("tags"),
-                enabled=config.get("enabled", True),
-            )(wrapper)
+
+            # Disable output_schema for tools with text/* MIME types to avoid structured_content validation
+            tool_kwargs = {
+                "name": config.get("name", name),
+                "description": config.get("description", func.__doc__),
+                "tags": config.get("tags"),
+                "enabled": config.get("enabled", True),
+            }
+
+            # Check if this tool uses MIME formatting
+            mime_type = str(config.get("mime_type") or "")
+            if mime_type.startswith("text/") and meta.display:
+                # Disable output schema to prevent structured_content validation of formatted strings
+                tool_kwargs["output_schema"] = None
+
+            self._fastmcp.tool(**tool_kwargs)(wrapper)
 
         for name, (func, meta) in self._mcp_components["resources"].items():
             config = {**self.fastmcp_defaults, **meta.fastmcp}
@@ -291,6 +301,10 @@ class App:
         """Create wrapper that injects state."""
         import functools
 
+        # Get config for MCP formatting decisions
+        _, meta = self._commands[func.__name__]
+        config = {**self.fastmcp_defaults, **(meta.fastmcp or {})}
+
         sig = inspect.signature(func)
 
         new_params = []
@@ -302,7 +316,14 @@ class App:
 
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            return func(self._state, *args, **kwargs)
+            result = func(self._state, *args, **kwargs)
+
+            # Apply formatting for text-based MIME types
+            mime_type = str(config.get("mime_type") or "")
+            if mime_type.startswith("text/") and meta.display and result is not None:
+                return self.formatter.format(result, meta)
+
+            return result
 
         wrapper.__signature__ = new_sig  # pyright: ignore[reportAttributeAccessIssue]
 

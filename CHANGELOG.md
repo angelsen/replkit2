@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- MIME-type driven formatting for MCP output
+  - Commands with `fastmcp={"mime_type": "text/plain"}` now return formatted ASCII output via MCP
+  - Commands with `fastmcp={"mime_type": "application/json"}` return raw JSON data (default behavior)
+  - Works for both MCP tools and resources
+  - Enables token-efficient formatted output for LLM consumption
+  - Example: `text/plain` returns ASCII tables, `application/json` returns raw list of dicts
+- `mime_type` field added to `FastMCPTool` type for consistency with `FastMCPResource`
+
+### Fixed
+- Fixed FastMCP `structured_content` validation error for tools with text MIME types
+  - Tools with `mime_type="text/*"` now have `output_schema=None` to prevent validation conflicts
+  - Allows formatted strings to be returned without FastMCP expecting dict structure
+  - Resolves "structured_content must be a dict or None" errors for MIME-formatted tools
+
 ## [0.5.0] - 2025-01-28
 
 ### Added
