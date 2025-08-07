@@ -10,6 +10,8 @@ from .textkit import TextFormatter, compose, hr, align
 if TYPE_CHECKING:
     from fastmcp import FastMCP
     from typer import Typer
+    from .integrations.mcp import FastMCPIntegration
+    from .integrations.cli import CLIIntegration
 
 
 class SilentResult:
@@ -71,10 +73,10 @@ class App:
         self.fastmcp_defaults = fastmcp or {}
         self._commands: dict[str, tuple[Callable[..., Any], CommandMeta]] = {}
 
-        self._fastmcp: FastMCP | None = None
+        self._mcp_integration: "FastMCPIntegration | None" = None
         self._mcp_components = {"tools": {}, "resources": {}, "prompts": {}}
 
-        self._typer: Typer | None = None
+        self._cli_integration: "CLIIntegration | None" = None
         self._cli_commands: dict[str, tuple[Callable[..., Any], CommandMeta]] = {}
 
     def command(
@@ -216,118 +218,11 @@ class App:
     @property
     def mcp(self) -> "FastMCP":
         """Get or create FastMCP server from registered components."""
-        if self._fastmcp is None:
-            self._create_fastmcp()
-        assert self._fastmcp is not None, "FastMCP should be created"
-        return self._fastmcp
+        if self._mcp_integration is None:
+            from .integrations.mcp import FastMCPIntegration
 
-    def _create_fastmcp(self):
-        """Lazily create FastMCP server."""
-        try:
-            from fastmcp import FastMCP
-        except ImportError:
-            raise ImportError("FastMCP is required for MCP features. Install it with: pip install fastmcp")
-
-        self._fastmcp = FastMCP(self.name)
-
-        for name, (func, meta) in self._mcp_components["tools"].items():
-            config = {**self.fastmcp_defaults, **meta.fastmcp}
-            wrapper = self._create_stateful_wrapper(func)
-
-            # Disable output_schema for tools with text/* MIME types to avoid structured_content validation
-            tool_kwargs = {
-                "name": config.get("name", name),
-                "description": config.get("description", func.__doc__),
-                "tags": config.get("tags"),
-                "enabled": config.get("enabled", True),
-            }
-
-            # Check if this tool uses MIME formatting
-            mime_type = str(config.get("mime_type") or "")
-            if mime_type.startswith("text/") and meta.display:
-                # Disable output schema to prevent structured_content validation of formatted strings
-                tool_kwargs["output_schema"] = None
-
-            self._fastmcp.tool(**tool_kwargs)(wrapper)
-
-        for name, (func, meta) in self._mcp_components["resources"].items():
-            config = {**self.fastmcp_defaults, **meta.fastmcp}
-            uri = config.get("uri") or self._generate_uri(func)
-            wrapper = self._create_stateful_wrapper(func)
-            self._fastmcp.resource(
-                uri=uri,
-                name=config.get("name", name),
-                description=config.get("description", func.__doc__),
-                mime_type=config.get("mime_type"),
-                tags=config.get("tags"),
-                enabled=config.get("enabled", True),
-            )(wrapper)
-
-            # Generate stub if requested and URI has parameters
-            stub_config = config.get("stub")
-            if stub_config and "{" in uri:
-                self._register_stub_resource(func, uri, stub_config)
-
-        for name, (func, meta) in self._mcp_components["prompts"].items():
-            config = {**self.fastmcp_defaults, **meta.fastmcp}
-            wrapper = self._create_stateful_wrapper(func)
-            self._fastmcp.prompt(
-                name=config.get("name", name),
-                description=config.get("description", func.__doc__),
-                tags=config.get("tags"),
-                enabled=config.get("enabled", True),
-            )(wrapper)
-
-    def _generate_uri(self, func):
-        """Generate URI template from function signature."""
-        sig = inspect.signature(func)
-        params = [p for n, p in sig.parameters.items() if n != "state"]
-
-        if not params:
-            return f"{self.uri_scheme}://{func.__name__}"
-
-        template_parts = [f"{{{p.name}}}" for p in params if p.default == inspect.Parameter.empty]
-        optional_parts = [f"{{{p.name}}}" for p in params if p.default != inspect.Parameter.empty]
-
-        uri = f"{self.uri_scheme}://{func.__name__}"
-        if template_parts:
-            uri += "/" + "/".join(template_parts)
-        if optional_parts:
-            uri += "/" + "/".join(optional_parts)
-
-        return uri
-
-    def _create_stateful_wrapper(self, func):
-        """Create wrapper that injects state."""
-        import functools
-
-        # Get config for MCP formatting decisions
-        _, meta = self._commands[func.__name__]
-        config = {**self.fastmcp_defaults, **(meta.fastmcp or {})}
-
-        sig = inspect.signature(func)
-
-        new_params = []
-        for name, param in sig.parameters.items():
-            if name != "state":
-                new_params.append(param)
-
-        new_sig = sig.replace(parameters=new_params)
-
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            result = func(self._state, *args, **kwargs)
-
-            # Apply formatting for text-based MIME types
-            mime_type = str(config.get("mime_type") or "")
-            if mime_type.startswith("text/") and meta.display and result is not None:
-                return self.formatter.format(result, meta)
-
-            return result
-
-        wrapper.__signature__ = new_sig  # pyright: ignore[reportAttributeAccessIssue]
-
-        return wrapper
+            self._mcp_integration = FastMCPIntegration(self)
+        return self._mcp_integration.create_server()
 
     def _generate_help_data(self) -> list[dict[str, str]]:
         """Generate help data for commands."""
@@ -356,120 +251,11 @@ class App:
 
         return sorted(commands, key=lambda x: x["Command"])
 
-    def _register_stub_resource(self, func, uri_template: str, stub_config: bool | dict[str, Any]):
-        """Register a stub resource for a template resource."""
-        import re
-
-        # Convert {param} to :param in URI
-        stub_uri = re.sub(r"\{(\w+)\}", r":\1", uri_template)
-
-        # Extract first line of docstring for description
-        description = ""
-        if func.__doc__:
-            description = func.__doc__.strip().split("\n")[0]
-
-        # Determine response data
-        if isinstance(stub_config, dict) and "response" in stub_config:
-            # User provided custom response
-            response_data = stub_config["response"]
-        else:
-            # Minimal default response
-            response_data = {
-                "description": description,
-                "template": uri_template,
-            }
-
-        # Create stub function
-        async def stub_func():
-            return response_data
-
-        # Set function metadata
-        stub_func.__name__ = f"{func.__name__}_stub"
-        stub_func.__doc__ = f"Example usage for {uri_template}"
-
-        # Register the stub as a regular resource
-        if self._fastmcp is not None:
-            self._fastmcp.resource(
-                uri=stub_uri,
-                name=f"{func.__name__}_example",
-                description=f"Example usage for {description}" if description else f"Example usage for {uri_template}",
-            )(stub_func)
-
     @property
     def cli(self) -> "Typer":
         """Get or create Typer CLI from registered commands."""
-        if self._typer is None:
-            self._create_typer()
-        assert self._typer is not None, "Typer should be created"
-        return self._typer
+        if self._cli_integration is None:
+            from .integrations.cli import CLIIntegration
 
-    def _create_typer(self):
-        """Lazily create Typer CLI."""
-        try:
-            from typer import Typer
-        except ImportError:
-            raise ImportError("Typer is required for CLI features. Install it with: pip install typer")
-
-        self._typer = Typer(
-            name=self.name,
-            help=f"{self.name} - ReplKit2 application",
-            rich_markup_mode="rich",
-        )
-
-        # Register commands
-        for name, (func, meta) in self._cli_commands.items():
-            if func.__name__ != name:  # Skip aliases for now
-                continue
-            self._register_typer_command(name, func, meta)
-
-    def _register_typer_command(self, name: str, func: Callable, meta: CommandMeta):
-        """Register a command with Typer."""
-        assert self._typer is not None, "Typer must be initialized"
-
-        typer_config = meta.typer or {}
-
-        # Create wrapper that handles state and formatting
-        wrapper = self._create_cli_wrapper(func, meta)
-
-        # Build Typer command decorator arguments
-        command_args = {
-            "name": typer_config.get("name", name.replace("_", "-")),
-            "help": typer_config.get("help", func.__doc__),
-            "epilog": typer_config.get("epilog"),
-            "short_help": typer_config.get("short_help"),
-            "hidden": typer_config.get("hidden", False),
-            "rich_help_panel": typer_config.get("rich_help_panel"),
-        }
-
-        # Filter out None values
-        command_args = {k: v for k, v in command_args.items() if v is not None}
-
-        # Register with Typer
-        self._typer.command(**command_args)(wrapper)
-
-    def _create_cli_wrapper(self, func: Callable, meta: CommandMeta) -> Callable:
-        """Create wrapper that handles state injection and output formatting for CLI."""
-        import functools
-
-        if self._state is not None:
-            # Reuse the stateful wrapper
-            wrapper = self._create_stateful_wrapper(func)
-        else:
-            wrapper = func
-
-        @functools.wraps(wrapper)
-        def cli_wrapper(*args, **kwargs):
-            # Execute command
-            result = wrapper(*args, **kwargs)
-
-            # Format and print output
-            if result is not None:
-                if meta.display:
-                    formatted = self.formatter.format(result, meta)
-                    print(formatted)
-                else:
-                    print(result)
-
-            return result
-
-        return cli_wrapper
+            self._cli_integration = CLIIntegration(self)
+        return self._cli_integration.create_cli()

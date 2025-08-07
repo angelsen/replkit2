@@ -64,6 +64,8 @@ if __name__ == "__main__":
     import sys
     if "--mcp" in sys.argv:
         app.mcp.run()  # MCP server mode
+    elif "--cli" in sys.argv:
+        app.cli()      # CLI mode
     else:
         app.run(title="My App")  # REPL mode (default)
 ```
@@ -72,7 +74,6 @@ if __name__ == "__main__":
 
 ```python
 from replkit2 import App
-from replkit2.types.core import FastMCPTool, FastMCPResource
 
 # App with MCP configuration
 app = App("notes", 
@@ -235,7 +236,7 @@ def show_alert(state):
 5. **FastMCP**: Dict with "type" field minimum, inherits app defaults
 6. **Typer**: Dict with configuration options, set `enabled: False` to exclude from CLI
 7. **URIs**: Auto-generated from function signature and parameters
-8. **Three Modes**: Same app works as REPL, CLI, and MCP server
+8. **Multi-Mode**: Same app works as REPL, CLI, and MCP server
 
 ## Display Type Reference
 

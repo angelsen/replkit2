@@ -52,12 +52,11 @@ def note_summary(state):
 @app.command(
     fastmcp={
         "type": "resource",
-        "uri": "noteapp://note/{id}",
         "mime_type": "application/json",
         "stub": {
             "response": {
-                "example": "noteapp://note/123",
-                "description": "Replace :id with a note ID",
+                "example": "noteapp://get_note/123",
+                "description": "Replace id with a note ID",
                 "usage": "Use list_notes to find available note IDs",
             }
         },
