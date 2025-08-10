@@ -2,6 +2,12 @@ version = 1
 revision = 3
 requires-python = ">=3.12"
 
+[manifest]
+members = [
+    "pydov4",
+    "replkit2",
+]
+
 [[package]]
 name = "annotated-types"
 version = "0.7.0"
@@ -183,16 +189,16 @@ wheels = [
 
 [[package]]
 name = "fastapi"
-version = "0.115.14"
+version = "0.116.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "starlette" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ca/53/8c38a874844a8b0fa10dd8adf3836ac154082cf88d3f22b544e9ceea0a15/fastapi-0.115.14.tar.gz", hash = "sha256:b1de15cdc1c499a4da47914db35d0e4ef8f1ce62b624e94e0e5824421df99739", size = 296263, upload-time = "2025-06-26T15:29:08.21Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/78/d7/6c8b3bfe33eeffa208183ec037fee0cce9f7f024089ab1c5d12ef04bd27c/fastapi-0.116.1.tar.gz", hash = "sha256:ed52cbf946abfd70c5a0dccb24673f0670deeb517a88b3544d03c2a6bf283143", size = 296485, upload-time = "2025-07-11T16:22:32.057Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/53/50/b1222562c6d270fea83e9c9075b8e8600b8479150a18e4516a6138b980d1/fastapi-0.115.14-py3-none-any.whl", hash = "sha256:6c0c8bf9420bd58f565e585036d971872472b4f7d3f6c73b698e10cffdefb3ca", size = 95514, upload-time = "2025-06-26T15:29:06.49Z" },
+    { url = "https://files.pythonhosted.org/packages/e5/47/d63c60f59a59467fda0f93f46335c9d18526d7071f025cb5b89d5353ea42/fastapi-0.116.1-py3-none-any.whl", hash = "sha256:c46ac7c312df840f0c9e220f7964bada936781bc4e2e6eb71f1c4d7553786565", size = 95631, upload-time = "2025-07-11T16:22:30.485Z" },
 ]
 
 [[package]]
@@ -456,6 +462,23 @@ wheels = [
 ]
 
 [[package]]
+name = "pydov4"
+version = "4.0.0"
+source = { editable = "packages/pydov4" }
+dependencies = [
+    { name = "nest-asyncio" },
+    { name = "pygls" },
+    { name = "replkit2" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "nest-asyncio", specifier = ">=1.6.0" },
+    { name = "pygls", specifier = ">=1.3.1" },
+    { name = "replkit2", editable = "." },
+]
+
+[[package]]
 name = "pygls"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
@@ -497,27 +520,17 @@ wheels = [
 
 [[package]]
 name = "replkit2"
-version = "0.7.0"
+version = "0.7.1"
 source = { editable = "." }
 
 [package.optional-dependencies]
-api = [
-    { name = "fastapi" },
-    { name = "uvicorn" },
-]
 cli = [
     { name = "typer" },
 ]
-dev = [
-    { name = "basedpyright" },
-    { name = "ruff" },
-]
 examples = [
+    { name = "fastapi" },
     { name = "psutil" },
-]
-lsp = [
-    { name = "nest-asyncio" },
-    { name = "pygls" },
+    { name = "uvicorn" },
 ]
 mcp = [
     { name = "fastmcp" },
@@ -526,24 +539,24 @@ mcp = [
 [package.dev-dependencies]
 dev = [
     { name = "basedpyright" },
+    { name = "ruff" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "basedpyright", marker = "extra == 'dev'", specifier = ">=1.29.5" },
-    { name = "fastapi", marker = "extra == 'api'", specifier = ">=0.115.14" },
+    { name = "fastapi", marker = "extra == 'examples'", specifier = ">=0.116.1" },
     { name = "fastmcp", marker = "extra == 'mcp'", specifier = ">=2.9.2" },
-    { name = "nest-asyncio", marker = "extra == 'lsp'", specifier = ">=1.6.0" },
     { name = "psutil", marker = "extra == 'examples'", specifier = ">=7.0.0" },
-    { name = "pygls", marker = "extra == 'lsp'", specifier = ">=1.3.1" },
-    { name = "ruff", marker = "extra == 'dev'" },
     { name = "typer", marker = "extra == 'cli'", specifier = ">=0.16.0" },
-    { name = "uvicorn", marker = "extra == 'api'" },
+    { name = "uvicorn", marker = "extra == 'examples'", specifier = ">=0.35.0" },
 ]
-provides-extras = ["examples", "api", "mcp", "dev", "lsp", "cli"]
+provides-extras = ["mcp", "cli", "examples"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "basedpyright", specifier = ">=1.29.5" }]
+dev = [
+    { name = "basedpyright", specifier = ">=1.29.5" },
+    { name = "ruff", specifier = ">=0.12.1" },
+]
 
 [[package]]
 name = "rich"

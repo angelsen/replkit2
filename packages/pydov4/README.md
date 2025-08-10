@@ -1,5 +1,7 @@
 # PyDoV4 - Modern LSP REPL
 
+**Note: PyDoV4 is a hero project/example application demonstrating ReplKit2's capabilities. It's not published to PyPI but serves as a comprehensive example of building complex REPL applications with ReplKit2.**
+
 PyDoV4 is an interactive REPL for testing Language Server Protocol (LSP) features with Python language servers. Built on ReplKit2's modern patterns, commands return pure Python data structures and formatters handle presentation.
 
 ## Architecture

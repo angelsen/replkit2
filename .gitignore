@@ -17,7 +17,6 @@ resources/
 bugs/
 tasks/
 .context-search.json
-# src/pydov4/
 _archive/
 
 # Example data files
