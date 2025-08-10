@@ -1,6 +1,6 @@
 [project]
 name = "replkit2"
-version = "0.7.0"
+version = "0.7.1"
 description = "A minimal Python framework for building stateful REPL applications with ASCII display"
 readme = "README.md"
 authors = [{ name = "Fredrik Angelsen", email = "fredrikangelsen@gmail.com" }]

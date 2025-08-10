@@ -168,9 +168,10 @@ class FastMCPIntegration:
         wrapper.__name__ = func.__name__
         wrapper.__doc__ = func.__doc__
 
-        # Copy annotations excluding 'state' for proper type hint support
+        # Copy annotations excluding 'state' and add 'params' for proper type hint support
         original_annotations = getattr(func, "__annotations__", {})
         wrapper.__annotations__ = {k: v for k, v in original_annotations.items() if k != "state"}
+        wrapper.__annotations__["params"] = str  # Add params annotation for greedy matching
 
         self.server.resource(
             uri=uri,
@@ -330,12 +331,12 @@ class FastMCPIntegration:
         sig = inspect.signature(func)
         new_params = []
 
-        # Add required parameters
+        # Add all parameters except state (both required and optional)
         for name, param in sig.parameters.items():
-            if name != "state" and param.default == inspect.Parameter.empty:
+            if name != "state":
                 new_params.append(param)
 
-        # Add greedy params parameter
+        # Add greedy params parameter for capturing remaining URI segments
         params_param = inspect.Parameter("params", inspect.Parameter.POSITIONAL_OR_KEYWORD, default="", annotation=str)
         new_params.append(params_param)
 

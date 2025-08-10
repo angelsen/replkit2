@@ -5,6 +5,20 @@ All notable changes to ReplKit2 will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2025-08-10
+
+### Fixed
+- Fixed MCP resource registration error when using optional parameters or Dict types
+  - Resources with optional parameters now properly include them in the greedy signature
+  - Added missing `params` annotation to wrapper functions for FastMCP compatibility
+  - Resolves `KeyError: 'params'` when registering resources with mixed parameter types
+
+### Changed
+- Updated `notes_mcp.py` example to use pure JSON-based state for true shared persistence
+  - State now reads from JSON on each operation instead of caching in memory
+  - Enables proper synchronization between REPL and MCP server instances
+  - Added transaction support with rollback capability
+
 ## [0.7.0] - 2025-08-10
 
 ### Added
