@@ -22,3 +22,6 @@ _archive/
 
 # Example data files
 examples/data/
+
+# Claude Code memory (personal preferences)
+CLAUDE.md
