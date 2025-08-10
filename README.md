@@ -14,16 +14,16 @@ Flask-style framework for building stateful REPL applications with rich display,
 
 ```bash
 # With uv (recommended)
-uv add replkit2
-uv add replkit2 --optional mcp      # MCP server support
-uv add replkit2 --optional cli      # CLI support  
-uv add replkit2 --optional examples # Run example scripts
+uv add replkit2                      # Core library only
+uv add "replkit2[all]"               # MCP + CLI support
+uv add "replkit2[mcp,cli]"           # Same as above
+uv add "replkit2[examples]"          # For running examples
 
 # Or with pip
 pip install replkit2
-pip install replkit2[mcp]
-pip install replkit2[cli]
-pip install replkit2[examples]
+pip install replkit2[all]            # MCP + CLI support
+pip install replkit2[mcp,cli]        # Same as above
+pip install replkit2[examples]       # For running examples
 ```
 
 ## 🚀 Quick Start

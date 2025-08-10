@@ -1,6 +1,6 @@
 [project]
 name = "replkit2"
-version = "0.7.1"
+version = "0.7.2"
 description = "A minimal Python framework for building stateful REPL applications with ASCII display"
 readme = "README.md"
 license = { text = "MIT" }
@@ -22,6 +22,7 @@ Issues = "https://github.com/angelsen/replkit2/issues"
 mcp = ["fastmcp>=2.9.2"]
 cli = ["typer>=0.16.0"]
 examples = ["fastapi>=0.116.1", "psutil>=7.0.0", "uvicorn>=0.35.0"]
+all = ["replkit2[mcp]", "replkit2[cli]"]
 
 
 [build-system]
