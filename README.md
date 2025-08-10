@@ -13,9 +13,17 @@ Flask-style framework for building stateful REPL applications with rich display,
 ## 📦 Installation
 
 ```bash
-pip install replkit2
-# or
+# With uv (recommended)
 uv add replkit2
+uv add replkit2 --optional mcp      # MCP server support
+uv add replkit2 --optional cli      # CLI support  
+uv add replkit2 --optional examples # Run example scripts
+
+# Or with pip
+pip install replkit2
+pip install replkit2[mcp]
+pip install replkit2[cli]
+pip install replkit2[examples]
 ```
 
 ## 🚀 Quick Start
@@ -188,12 +196,9 @@ python typer_demo.py --cli --help  # CLI help
 
 ```bash
 # Clone and install
-git clone https://github.com/yourusername/replkit2
+git clone https://github.com/angelsen/replkit2
 cd replkit2
-uv sync
-
-# Add dev dependencies
-uv add --dev basedpyright ruff
+uv sync --group dev
 
 # Type check
 uv run basedpyright src/replkit2
@@ -205,4 +210,4 @@ uv run ruff check src/
 
 ## 📄 License
 
-MIT
+MIT - see [LICENSE](LICENSE) for details.
