@@ -65,8 +65,13 @@ class FastMCPIntegration:
 
     def _register_resources(self):
         """Register resources based on their parameter patterns."""
+        from ..validation import validate_mcp_resource_params
+
         for name, (func, meta) in self.app._mcp_components["resources"].items():
             config = {**self.app.fastmcp_defaults, **meta.fastmcp}
+
+            # Validate resource parameters follow URI constraints
+            validate_mcp_resource_params(func)
 
             if self._is_all_optional_function(func):
                 # All-optional: dual registration (base + template)
@@ -345,18 +350,95 @@ class FastMCPIntegration:
     # === Parameter Parsing ===
 
     def _parse_greedy_params(self, func: Callable, params_string: str) -> dict[str, Any]:
-        """Parse greedy parameter string into function kwargs."""
+        """Parse greedy parameter string with smart type conversion.
+
+        Handles:
+        - Primitives: int, float, bool, str
+        - Lists: comma-separated values → List[T]
+        - Dicts: last param gets remaining segments as key/value pairs
+        - "-" means use default value (skip parameter)
+        """
         if not params_string or params_string == "-":
             return {}
 
+        from typing import get_origin, get_args
+
         parts = params_string.split("/")
         optional_params = self._get_optional_parameters(func)
-
         result = {}
+
         for i, param in enumerate(optional_params):
-            if i < len(parts) and parts[i] not in ("", "-"):
-                # Pass raw strings - let function handle type conversion
-                result[param.name] = parts[i]
+            if i >= len(parts):
+                break
+
+            value = parts[i]
+
+            # Skip "-" to use default value
+            if value == "-":
+                continue
+
+            # Empty string also means skip
+            if value == "":
+                continue
+
+            origin = get_origin(param.annotation)
+            is_last = i == len(optional_params) - 1
+            is_dict = origin is dict or param.annotation is dict
+
+            # Check if dict param should consume remaining segments
+            if is_last and is_dict and i < len(parts) - 1:
+                # Dict parameter consumes all remaining segments
+                remaining = parts[i:]
+                if len(remaining) >= 2 and len(remaining) % 2 == 0:
+                    # Parse as key/value pairs
+                    value = {}
+                    for j in range(0, len(remaining), 2):
+                        key = remaining[j]
+                        val = remaining[j + 1]
+                        # Try to convert dict values to appropriate types
+                        # For now, keep as strings (can enhance later)
+                        value[key] = val
+                else:
+                    # Can't parse as dict, use empty dict
+                    value = {}
+            else:
+                # Normal parameter conversion
+                if param.annotation != inspect.Parameter.empty:
+                    try:
+                        if param.annotation is int:
+                            value = int(value)
+                        elif param.annotation is float:
+                            value = float(value)
+                        elif param.annotation is bool:
+                            # URI boolean: accept 'true' (case-insensitive) or '1'
+                            value = value.lower() in ("true", "1")
+                        elif origin is list:
+                            # Parse comma-separated values
+                            if value:
+                                value = [v.strip() for v in value.split(",")]
+                                # Try to convert inner types
+                                args = get_args(param.annotation)
+                                if args:
+                                    inner_type = args[0]
+                                    if inner_type is int:
+                                        value = [int(v) for v in value]
+                                    elif inner_type is float:
+                                        value = [float(v) for v in value]
+                                    elif inner_type is bool:
+                                        value = [v.lower() in ("true", "1") for v in value]
+                                    # str stays as is
+                            else:
+                                value = []
+                        # str passes through as-is
+                    except (ValueError, TypeError):
+                        # If conversion fails, pass the string value
+                        pass
+
+            result[param.name] = value
+
+            # If dict consumed everything, stop
+            if is_last and is_dict and i < len(parts) - 1:
+                break
 
         return result
 

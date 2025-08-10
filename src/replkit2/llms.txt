@@ -1,299 +1,139 @@
-# ReplKit2 Guide
+# How to write ReplKit2 apps
 
-Flask-style framework for building stateful REPL applications with rich ASCII output, MCP integration, and CLI support.
-
-## Basic App Structure
+## Create a basic app
 
 ```python
 from replkit2 import App
 from dataclasses import dataclass, field
 
 @dataclass
-class AppState:
-    items: list[dict] = field(default_factory=list)
-    counter: int = 0
+class State:
+    items: list = field(default_factory=list)
+    count: int = 0
 
-app = App("myapp", AppState)
-```
+app = App("myapp", State)
 
-## Commands with Display Types
-
-```python
-# Table display
 @app.command(display="table", headers=["ID", "Name", "Status"])
 def list_items(state):
     return [{"ID": i, "Name": item["name"], "Status": item["status"]} 
             for i, item in enumerate(state.items)]
 
-# Box display
-@app.command(display="box", title="Summary")
-def status(state):
-    return f"Total items: {len(state.items)}\nLast update: {state.counter}"
+@app.command()
+def add_item(state, name: str, status: str = "active"):
+    state.items.append({"name": name, "status": status})
+    state.count += 1
+    return f"Added {name}"
 
-# Tree display
-@app.command(display="tree")
-def hierarchy(state):
-    return {
-        "active": [i for i in state.items if i["status"] == "active"],
-        "pending": [i for i in state.items if i["status"] == "pending"]
-    }
-
-# Progress display
-@app.command(display="progress", show_percentage=True)
-def completion(state):
-    done = sum(1 for i in state.items if i["status"] == "done")
-    return {"value": done, "total": len(state.items)}
-
-# Markdown display
-@app.command(display="markdown")
-def report(state):
-    return {
-        "frontmatter": {"title": "Status Report", "date": "2025-01-28"},
-        "elements": [
-            {"type": "heading", "content": "Overview", "level": 2},
-            {"type": "text", "content": f"Total items: {len(state.items)}"},
-            {"type": "code_block", "content": "print('Hello')", "language": "python"}
-        ]
-    }
+# Run as REPL: app.run()
+# Run as MCP: app.mcp.run()
+# Run as CLI: app.cli()
 ```
 
-## Running the App
+## Use display types
+
+- `display="table"` with list of dicts
+- `display="box"` with string
+- `display="tree"` with nested dict
+- `display="list"` with list of strings
+- `display="progress"` with {"value": n, "total": m}
+- `display="markdown"` with {"elements": [...]}
+
+## Add MCP support
+
+```python
+@app.command(fastmcp={"type": "tool"})
+def process(state, text: str, count: int = 10):
+    # Tool: callable action
+    return f"Processed {text} {count} times"
+
+@app.command(fastmcp={"type": "resource"})
+def get_data(state, id: int):
+    # Resource: readable data at test://get_data/{id}
+    return {"id": id, "data": state.items.get(id)}
+
+@app.command(fastmcp={"type": "prompt"})
+def generate(state, topic: str = "general"):
+    # Prompt: template for LLMs
+    return f"Write about {topic} based on: {state.items}"
+```
+
+## Handle types correctly for MCP
+
+```python
+# GOOD - works with MCP
+def command(state,
+    required: str,                    # Required param
+    optional: str = None,             # Optional (use = None)
+    items: List[str] = None,         # Lists work
+    config: Dict[str, int] = None,   # Dicts work
+):
+    pass
+
+# BAD - causes "unknown" in MCP
+def command(state,
+    param,                           # No type annotation
+    optional: Optional[str] = None,  # Don't use Optional[T]
+    either: Union[str, int] = "",    # Don't use Union
+):
+    pass
+```
+
+## Resource parameter rules
+
+Resources parse from URIs, so parameters have constraints:
+
+```python
+# Required params first, then optional, dict must be last
+@app.command(fastmcp={"type": "resource"})
+def search(state, 
+    category: str,                    # Required: /search/{category}/...
+    tags: str = None,                 # Optional: parsed from comma-separated
+    filters: dict = None,             # Dict last: consumes remaining segments
+):
+    tag_list = tags.split(",") if tags else []
+    # URI: app://search/books/fiction,mystery/status/active/priority/high
+    # Result: category="books", tags="fiction,mystery", filters={"status": "active", "priority": "high"}
+```
+
+## Add CLI support
+
+```python
+@app.command(typer={"help": "Add a new task"})
+def add(state, text: str, priority: str = "normal"):
+    # Available in CLI as: myapp add "text" --priority high
+    return f"Added: {text}"
+
+@app.command(typer={"enabled": False})
+def debug(state):
+    # Only in REPL, not CLI
+    return vars(state)
+```
+
+## Custom display
+
+```python
+@app.formatter.register("custom")
+def custom_display(data, meta, formatter):
+    from replkit2.textkit import box, compose
+    return compose(
+        box(data["summary"], title="Overview"),
+        formatter.format(data["details"], meta),  # Reuse formatter
+    )
+
+@app.command(display="custom")
+def dashboard(state):
+    return {"summary": "Active: 5", "details": state.items}
+```
+
+## Run the app
 
 ```python
 if __name__ == "__main__":
     import sys
     if "--mcp" in sys.argv:
-        app.mcp.run()  # MCP server mode
+        app.mcp.run()        # MCP server mode
     elif "--cli" in sys.argv:
-        app.cli()      # CLI mode
+        app.cli()            # CLI mode  
     else:
-        app.run(title="My App")  # REPL mode (default)
-```
-
-## FastMCP Integration
-
-```python
-from replkit2 import App
-
-# App with MCP configuration
-app = App("notes", 
-    NotesState,
-    uri_scheme="notes",  # URIs like notes://command
-    fastmcp={"tags": {"productivity"}}  # Default tags
-)
-
-# MCP Tool
-@app.command(fastmcp={"type": "tool"})
-def add_note(state, text: str, priority: str = "normal"):
-    """Add a new note."""
-    note = {"id": state.next_id, "text": text, "priority": priority}
-    state.notes.append(note)
-    state.next_id += 1
-    return f"Added note #{note['id']}"
-
-# MCP Resource (simple URI)
-@app.command(fastmcp={"type": "resource", "mime_type": "application/json"})
-def summary(state):
-    """Get notes summary."""
-    return {"total": len(state.notes), "next_id": state.next_id}
-
-# MCP Resource (URI template auto-generated: notes://get_note/{id})
-@app.command(fastmcp={"type": "resource"})
-def get_note(state, id: int):
-    """Get note by ID."""
-    return next((n for n in state.notes if n["id"] == id), None)
-
-# MCP Prompt
-@app.command(fastmcp={"type": "prompt"})
-def brainstorm(state, topic: str = None):
-    """Generate brainstorming prompt."""
-    context = "\n".join(n["text"] for n in state.notes[-5:])
-    return f"Based on: {topic or 'recent notes'}\n{context}\nSuggest 3 ideas:"
-
-# Not exposed to MCP
-@app.command(fastmcp={"enabled": False})
-def debug(state):
-    return vars(state)
-```
-
-## Typer CLI Integration
-
-```python
-# Basic CLI command
-@app.command(typer={"help": "Add a new task to the list"})
-def add_task(state, text: str, priority: str = "normal"):
-    """Add task with optional priority."""
-    task = {"id": state.next_id, "text": text, "priority": priority}
-    state.tasks.append(task)
-    state.next_id += 1
-    return f"Added task #{task['id']}"
-
-# Hidden from CLI
-@app.command(typer={"enabled": False})
-def debug(state):
-    """Debug command only available in REPL."""
-    return vars(state)
-
-# Custom CLI configuration
-@app.command(
-    display="table",
-    typer={
-        "name": "ls",  # Short name for CLI
-        "help": "List all tasks",
-        "epilog": "Use --done to filter completed tasks",
-        "rich_help_panel": "Task Management"
-    }
-)
-def list_tasks(state, done: bool = False):
-    """List tasks with optional filtering."""
-    tasks = [t for t in state.tasks if not done or t.get("done")]
-    return [{"ID": t["id"], "Task": t["text"], "Done": "✓" if t.get("done") else ""} 
-            for t in tasks]
-
-# Use CLI mode
-app.cli()
-```
-
-## Custom Display Components
-
-```python
-# Register custom display type
-@app.formatter.register("dashboard")
-def dashboard_display(data, meta, formatter):
-    from replkit2.textkit import compose, box
-    from replkit2.types.core import CommandMeta
-    # Use formatter for table to handle dict→list conversion
-    table_meta = CommandMeta(display="table", display_opts={"headers": ["ID", "Status"]})
-    items_table = formatter.format(data["items"], table_meta)
-    return compose(
-        box(data["summary"], title="Overview"),
-        items_table,
-        spacing=1
-    )
-
-# Use custom display
-@app.command(display="dashboard")
-def dashboard(state):
-    return {
-        "summary": f"Active: {len(state.items)}",
-        "items": [{"ID": i, "Status": item["status"]} 
-                  for i, item in enumerate(state.items)]
-    }
-```
-
-## Markdown Builder
-
-```python
-from replkit2.textkit import markdown
-
-@app.command(display="markdown")
-def show_doc(state):
-    return (markdown()
-        .frontmatter(author="ReplKit2", version="1.0")
-        .heading("Documentation")
-        .text("Welcome to the documentation.")
-        .code_block("app = App('myapp', State)", language="python")
-        .list(["Feature 1", "Feature 2"], ordered=True)
-        .build())
-```
-
-## Custom Markdown Elements
-
-```python
-from replkit2.textkit import MarkdownElement
-
-class Alert(MarkdownElement):
-    element_type = "alert"
-    
-    def __init__(self, content: str, level: str = "info"):
-        self.content = content
-        self.level = level
-    
-    @classmethod
-    def from_dict(cls, data: dict) -> "Alert":
-        return cls(data.get("content", ""), data.get("level", "info"))
-    
-    def render(self) -> str:
-        return f"!!! {self.level}\n    {self.content}"
-
-# Now use in commands
-@app.command(display="markdown")
-def show_alert(state):
-    return {
-        "elements": [
-            {"type": "heading", "content": "Alert Demo"},
-            {"type": "alert", "content": "This is important!", "level": "warning"}
-        ]
-    }
-```
-
-## Key Patterns
-
-1. **State**: First parameter of every command
-2. **Display**: Return data matching display type (list of dicts for tables)
-3. **Custom formatters**: Receive three parameters: `(data, meta, formatter)`
-4. **Type imports**: Use explicit paths: `from replkit2.types.core import CommandMeta`
-5. **FastMCP**: Dict with "type" field minimum, inherits app defaults
-6. **Typer**: Dict with configuration options, set `enabled: False` to exclude from CLI
-7. **URIs**: Auto-generated from function signature and parameters
-8. **Multi-Mode**: Same app works as REPL, CLI, and MCP server
-
-## Display Type Reference
-
-- `table`: List of dicts or list of lists → formatted table
-- `box`: String → bordered box
-- `tree`: Nested dict → hierarchical view
-- `list`: List of strings → bullet list
-- `bar_chart`: Dict with numeric values → horizontal bars
-- `progress`: {"value": n, "total": m} → progress bar
-- `markdown`: Dict with "elements" and optional "frontmatter" → formatted markdown
-
-## Configuration Type Reference
-
-### FastMCP Types
-- `{"type": "tool"}`: Callable actions
-- `{"type": "resource"}`: Readable data (GET-like)
-- `{"type": "prompt"}`: Prompt templates
-- `{"enabled": False}`: Exclude from MCP
-- `{"uri": "custom://path"}`: Override auto-generated URI
-- `{"stub": True}`: Generate stub resource for template URIs
-
-### Typer Types
-- `{"name": "cmd-name"}`: Override command name for CLI
-- `{"help": "Help text"}`: Override docstring for CLI help
-- `{"hidden": True}`: Hide from CLI help
-- `{"enabled": False}`: Exclude from CLI
-- `{"rich_help_panel": "Panel Name"}`: Group commands in help
-
-## State Persistence
-
-```python
-# For CLI commands that need persistent state
-import json
-from pathlib import Path
-
-@dataclass
-class TodoState:
-    tasks: list[dict] = field(default_factory=list)
-    next_id: int = 1
-    
-    @classmethod
-    def load(cls, path: str) -> "TodoState":
-        if Path(path).exists():
-            with open(path) as f:
-                data = json.load(f)
-            return cls(**data)
-        return cls()
-    
-    def save(self, path: str):
-        with open(path, "w") as f:
-            json.dump(asdict(self), f)
-
-# In commands
-@app.command()
-def add(state, text: str):
-    state.tasks.append({"id": state.next_id, "text": text})
-    state.next_id += 1
-    state.save("todo-state.json")
-    return f"Added task #{state.next_id - 1}"
+        app.run()            # REPL mode (default)
 ```

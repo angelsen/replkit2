@@ -6,6 +6,7 @@ import inspect
 from .formatters import Formatter
 from .types.core import CommandMeta, FastMCPConfig, FastMCPDefaults, TyperCLI
 from .textkit import TextFormatter, compose, hr, align
+from .validation import validate_mcp_types
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
@@ -87,6 +88,7 @@ class App:
         aliases: list[str] | None = None,
         fastmcp: FastMCPConfig | None = None,
         typer: TyperCLI | None = None,
+        strict_types: bool | None = None,
         **display_opts: Any,
     ) -> Callable[[Callable], Callable] | Callable:
         """
@@ -98,10 +100,20 @@ class App:
             aliases: Alternative names for the command
             fastmcp: FastMCP configuration dict
             typer: Typer CLI configuration dict
+            strict_types: Enforce primitive types (auto-True for fastmcp)
             **display_opts: Additional display options
         """
 
         def decorator(f: Callable) -> Callable:
+            # Determine if we should validate types
+            should_validate = strict_types
+            if should_validate is None:
+                # Auto-strict for fastmcp commands
+                should_validate = bool(fastmcp and fastmcp.get("enabled", True))
+
+            if should_validate:
+                validate_mcp_types(f)
+
             meta = CommandMeta(
                 display=display, display_opts=display_opts, aliases=aliases or [], fastmcp=fastmcp, typer=typer
             )

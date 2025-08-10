@@ -4,7 +4,7 @@
 
 This document outlines potential future features and enhancements for ReplKit2. Items are not commitments but rather ideas under consideration. Community feedback is welcome via GitHub issues.
 
-## v0.7.0 - FastAPI First-Class Support
+## Next Minor Version - FastAPI First-Class Support
 
 ### Goal
 Enable ReplKit2 commands to automatically become API endpoints, similar to the existing FastMCP and Typer integrations.
@@ -36,7 +36,7 @@ fastapi_app.include_router(app.api(), prefix="/replkit")
 - How to handle authentication/authorization?
 - Response model generation from return types?
 
-## v0.8.0 - Plugin System
+## Future Release - Plugin System
 
 ### Goal
 Allow third-party extensions without modifying core.
@@ -59,7 +59,7 @@ entry_points={
 }
 ```
 
-## v0.9.0 - Enhanced State Management
+## Future Release - Enhanced State Management
 
 ### Persistent State Backends
 - SQLite adapter for command history and state
@@ -124,4 +124,4 @@ No fixed timeline. Features will be implemented based on:
 
 ---
 
-*Last updated: 2025-08-07*
+*Last updated: 2025-08-10*

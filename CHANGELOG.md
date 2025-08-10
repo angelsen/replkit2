@@ -5,7 +5,41 @@ All notable changes to ReplKit2 will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7.0] - 2025-08-10
+
+### Added
+- Comprehensive type validation system for MCP compatibility
+  - New `validation.py` module with specialized validation functions
+  - `strict_types` parameter in `@app.command()` decorator (auto-enabled for MCP)
+  - Blocks parameters without type annotations (prevents "unknown" in MCP)
+  - Supports nested generics: `List[List[str]]`, `Dict[str, Dict[str, int]]`
+  - Rejects Optional[T] and Union[A, B] types that cause "unknown" in MCP clients
+  - Clear, actionable error messages at registration time
+- Enhanced URI parameter parsing for MCP resources
+  - Smart type conversion for all primitive types (int, float, bool, str)
+  - List parsing from comma-separated values: `"a,b,c"` → `["a", "b", "c"]`
+  - Dict parsing for last parameter: `key1/val1/key2/val2` → `{"key1": "val1", "key2": "val2"}`
+  - Type-aware list conversion: `List[int]` properly converts `"1,2,3"` → `[1, 2, 3]`
+  - Dash (`-`) placeholder support for using default values
+- Resource-specific validation for URI constraints
+  - Enforces required parameters before optional ones
+  - Validates dict parameters must be last (consume remaining URI segments)
+  - Prevents multiple dict parameters in resources
+
+### Changed
+- Type validation refactored into separate `validation.py` module
+  - Cleaner separation of concerns in `app.py`
+  - Reusable validation functions for testing and debugging
+  - Better maintainability and extensibility
+- MCP resource registration enhanced with parameter ordering validation
+  - Resources now validate parameter patterns match URI constraints
+  - Better error messages guide developers to correct patterns
+  
+### Improved
+- URI parsing now handles complex types pythonically
+  - Lists work with proper type conversion
+  - Dict parameters consume remaining segments correctly
+  - Empty strings and dashes properly skip to defaults
 
 ## [0.6.0] - 2025-08-07
 
