@@ -80,6 +80,8 @@ class App:
         self._cli_integration: "CLIIntegration | None" = None
         self._cli_commands: dict[str, tuple[Callable[..., Any], CommandMeta]] = {}
 
+        self._notebook_integration = None
+
     def command(
         self,
         func: Callable | None = None,
@@ -271,3 +273,12 @@ class App:
 
             self._cli_integration = CLIIntegration(self)
         return self._cli_integration.create_cli()
+
+    @property
+    def notebook(self):
+        """Get notebook integration for loading from .ipynb files."""
+        if self._notebook_integration is None:
+            from .integrations.notebook import NotebookIntegration
+
+            self._notebook_integration = NotebookIntegration(self)
+        return self._notebook_integration

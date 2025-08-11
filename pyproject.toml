@@ -23,6 +23,10 @@ mcp = ["fastmcp>=2.9.2"]
 cli = ["typer>=0.16.0"]
 examples = ["fastapi>=0.116.1", "psutil>=7.0.0", "uvicorn>=0.35.0"]
 all = ["replkit2[mcp]", "replkit2[cli]"]
+notebook = [
+    "ipykernel>=6.30.1",
+    "nbformat>=5.10.4",
+]
 
 
 [build-system]
