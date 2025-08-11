@@ -5,6 +5,23 @@ All notable changes to ReplKit2 will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] - 2025-08-11
+
+### Added
+- MCP tool aliases with parameter remapping support
+  - Simple string aliases for alternate tool names
+  - Advanced aliases with custom descriptions and parameter mapping
+  - Parameter name remapping for semantic clarity (e.g., "command" → "message")
+  - Full backward compatibility with existing tools
+- Release automation workflow
+  - Makefile with standardized release commands
+  - Claude command for systematic release process
+  - Aligned with tap-tools project patterns
+
+### Fixed
+- Fixed bare except in notes_mcp.py example
+- Added missing _register_prompt_alias placeholder method
+
 ## [0.7.1] - 2025-08-10
 
 ### Fixed

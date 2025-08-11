@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Dict
+from typing import List
 from contextlib import contextmanager
 from replkit2 import App
 
@@ -24,7 +24,7 @@ class NotesState:
                 with open(self._file_path) as f:
                     data = json.load(f)
                     return {"notes": data.get("notes", []), "next_id": data.get("next_id", 1)}
-            except:
+            except (json.JSONDecodeError, OSError):
                 pass
         return {"notes": [], "next_id": 1}
 
@@ -51,7 +51,7 @@ class NotesState:
             yield temp
             # Save on success
             self.save(temp.notes, temp.next_id)
-        except Exception as e:
+        except Exception:
             # Rollback by saving original
             self.save(notes, next_id)
             raise
@@ -64,7 +64,14 @@ app = App("notes", NotesState, uri_scheme="notes")
 app.state = NotesState()
 
 
-@app.command(display="table", headers=["ID", "Title", "Tags", "Created"], fastmcp={"type": "tool"})
+@app.command(
+    display="table",
+    headers=["ID", "Title", "Tags", "Created"],
+    fastmcp={
+        "type": "tool",
+        "aliases": ["ls"],  # Unix-style alias for listing
+    },
+)
 def list(state, tag: str = None):
     """List all notes, optionally filtered by tag."""
     data = state.read()
@@ -82,7 +89,20 @@ def list(state, tag: str = None):
     ]
 
 
-@app.command(display="box", fastmcp={"type": "tool"})
+@app.command(
+    display="box",
+    fastmcp={
+        "type": "tool",
+        "aliases": [
+            {"name": "create", "description": "Create a new note"},
+            {
+                "name": "new",
+                "description": "Add a new note entry",
+                "param_mapping": {"title": "heading"},  # More semantic: heading instead of title
+            },
+        ],
+    },
+)
 def add(state, title: str, tags: List[str] = None):
     """Add a new note with explicit save."""
     # Read current state

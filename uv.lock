@@ -520,10 +520,14 @@ wheels = [
 
 [[package]]
 name = "replkit2"
-version = "0.7.1"
+version = "0.7.3"
 source = { editable = "." }
 
 [package.optional-dependencies]
+all = [
+    { name = "fastmcp" },
+    { name = "typer" },
+]
 cli = [
     { name = "typer" },
 ]
@@ -547,10 +551,12 @@ requires-dist = [
     { name = "fastapi", marker = "extra == 'examples'", specifier = ">=0.116.1" },
     { name = "fastmcp", marker = "extra == 'mcp'", specifier = ">=2.9.2" },
     { name = "psutil", marker = "extra == 'examples'", specifier = ">=7.0.0" },
+    { name = "replkit2", extras = ["cli"], marker = "extra == 'all'" },
+    { name = "replkit2", extras = ["mcp"], marker = "extra == 'all'" },
     { name = "typer", marker = "extra == 'cli'", specifier = ">=0.16.0" },
     { name = "uvicorn", marker = "extra == 'examples'", specifier = ">=0.35.0" },
 ]
-provides-extras = ["mcp", "cli", "examples"]
+provides-extras = ["mcp", "cli", "examples", "all"]
 
 [package.metadata.requires-dev]
 dev = [

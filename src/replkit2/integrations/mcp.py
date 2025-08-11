@@ -63,6 +63,11 @@ class FastMCPIntegration:
 
             self.server.tool(**tool_kwargs)(wrapper)
 
+            # Register aliases if specified
+            aliases = config.get("aliases", [])
+            for alias in aliases:
+                self._register_tool_alias(func, meta, config, alias)
+
     def _register_resources(self):
         """Register resources based on their parameter patterns."""
         from ..validation import validate_mcp_resource_params
@@ -96,6 +101,11 @@ class FastMCPIntegration:
                 tags=config.get("tags"),
                 enabled=config.get("enabled", True),
             )(wrapper)
+
+            # Register aliases if specified
+            aliases = config.get("aliases", [])
+            for alias in aliases:
+                self._register_prompt_alias(func, meta, config, alias)
 
     # === Resource Registration Strategies ===
 
@@ -489,3 +499,107 @@ class FastMCPIntegration:
         else:
             # Standard parameter substitution
             return re.sub(r"\{(\w+)\}", r":\1", uri_template)
+
+    # === Tool Alias Registration ===
+
+    def _register_tool_alias(self, func: Callable, meta, config: dict, alias):
+        """Register a tool alias with optional parameter mapping and custom description."""
+        assert self.server is not None, "Server must be created first"
+
+        # Parse alias configuration
+        if isinstance(alias, str):
+            # Simple string alias - use primary tool's description
+            alias_name = alias
+            alias_desc = config.get("description", func.__doc__)
+            param_mapping = None
+        elif isinstance(alias, dict):
+            # Advanced alias with custom options
+            alias_name = alias.get("name")
+            if not alias_name:
+                return  # Skip invalid alias
+            alias_desc = alias.get("description", config.get("description", func.__doc__))
+            param_mapping = alias.get("param_mapping", None)
+        else:
+            return  # Skip invalid alias format
+
+        # Create wrapper with parameter mapping if needed
+        if param_mapping:
+            wrapper = self._create_mapped_tool_wrapper(func, meta, config, param_mapping)
+        else:
+            # Use standard wrapper
+            wrapper = self._create_tool_wrapper(func, meta, config)
+
+        # Override the function name for the alias
+        wrapper.__name__ = alias_name
+
+        # Prepare tool registration kwargs
+        tool_kwargs = {
+            "name": alias_name,
+            "description": alias_desc,
+            "tags": config.get("tags"),
+            "enabled": config.get("enabled", True),
+        }
+
+        # Check if this tool uses MIME formatting
+        mime_type = str(config.get("mime_type") or "")
+        if mime_type.startswith("text/") and meta.display:
+            tool_kwargs["output_schema"] = None
+
+        # Register the alias
+        self.server.tool(**tool_kwargs)(wrapper)
+
+    def _register_prompt_alias(self, func: Callable, meta, config: dict, alias):
+        """Register a prompt alias (placeholder for future implementation)."""
+        # TODO: Implement prompt aliases in future version
+        pass
+
+    def _create_mapped_tool_wrapper(self, func: Callable, meta, config: dict, param_mapping: dict) -> Callable:
+        """Create a tool wrapper with parameter name mapping."""
+        import functools
+
+        # Get original signature and annotations
+        sig = inspect.signature(func)
+        original_annotations = getattr(func, "__annotations__", {})
+
+        new_params = []
+        new_annotations = {}
+        reverse_mapping = {}
+
+        # Build new parameter list with mapped names
+        for name, param in sig.parameters.items():
+            if name == "state":
+                continue  # Skip state parameter
+
+            if name in param_mapping:
+                # Create parameter with mapped name
+                mapped_name = param_mapping[name]
+                new_param = param.replace(name=mapped_name)
+                new_params.append(new_param)
+                reverse_mapping[mapped_name] = name
+
+                # Copy type annotation to new parameter name
+                if name in original_annotations:
+                    new_annotations[mapped_name] = original_annotations[name]
+            else:
+                # Keep original parameter name
+                new_params.append(param)
+                if name in original_annotations:
+                    new_annotations[name] = original_annotations[name]
+
+        # Create wrapper that reverses the parameter mapping
+        @functools.wraps(func)
+        def wrapper(**kwargs):
+            # Map parameters back to original names
+            original_kwargs = {}
+            for key, value in kwargs.items():
+                original_key = reverse_mapping.get(key, key)
+                original_kwargs[original_key] = value
+
+            # Call with original parameter names
+            return self._call_function_with_formatting(func, original_kwargs, meta, config)
+
+        # Apply the new signature and annotations
+        wrapper.__signature__ = sig.replace(parameters=new_params)  # pyright: ignore[reportAttributeAccessIssue]
+        wrapper.__annotations__ = new_annotations
+
+        return wrapper
