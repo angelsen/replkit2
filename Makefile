@@ -38,6 +38,7 @@ help:
 	@echo "  test-build      Test built package"
 	@echo "  release         Tag release"
 	@echo "  publish         Publish to PyPI"
+	@echo "  verify-pypi     Verify PyPI has latest version"
 	@echo "  full-release    Complete workflow"
 	@echo ""
 	@echo "Utilities:"
@@ -202,6 +203,20 @@ publish:
 	@uv publish --token "$$(pass pypi/uv-publish)"
 	@echo "✓ Published to PyPI"
 
+# Verify PyPI release
+.PHONY: verify-pypi
+verify-pypi:
+	@echo "→ Verifying $(PACKAGE) on PyPI..."
+	@LATEST=$$(curl -s https://pypi.org/rss/project/$(PACKAGE)/releases.xml | \
+		grep -oP '(?<=<title>)[0-9]+\.[0-9]+\.[0-9]+' | head -1); \
+	LOCAL=$$(uv version --short); \
+	if [ "$$LATEST" = "$$LOCAL" ]; then \
+		echo "✓ PyPI has v$$LATEST (matches local)"; \
+	else \
+		echo "⚠ PyPI: v$$LATEST, Local: v$$LOCAL"; \
+		echo "  Package may still be propagating..."; \
+	fi
+
 # Full Release Workflow
 .PHONY: full-release
 full-release: preflight build test-build
@@ -209,9 +224,10 @@ full-release: preflight build test-build
 	@echo "✓ Package $(PACKAGE) ready for release!"
 	@echo ""
 	@echo "Complete the release:"
-	@echo "  1. make release     # Create git tag"
-	@echo "  2. make publish     # Publish to PyPI"
-	@echo "  3. git push origin && git push origin --tags"
+	@echo "  1. make release      # Create git tag"
+	@echo "  2. make publish      # Publish to PyPI"
+	@echo "  3. make verify-pypi  # Verify on PyPI"
+	@echo "  4. git push origin && git push origin --tags"
 
 # Dependency utilities
 .PHONY: deps-tree
