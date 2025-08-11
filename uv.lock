@@ -520,7 +520,7 @@ wheels = [
 
 [[package]]
 name = "replkit2"
-version = "0.7.3"
+version = "0.7.4"
 source = { editable = "." }
 
 [package.optional-dependencies]
