@@ -102,11 +102,6 @@ class FastMCPIntegration:
                 enabled=config.get("enabled", True),
             )(wrapper)
 
-            # Register aliases if specified
-            aliases = config.get("aliases", [])
-            for alias in aliases:
-                self._register_prompt_alias(func, meta, config, alias)
-
     # === Resource Registration Strategies ===
 
     def _register_all_optional_resource(self, func: Callable, meta, config: dict):
@@ -547,11 +542,6 @@ class FastMCPIntegration:
 
         # Register the alias
         self.server.tool(**tool_kwargs)(wrapper)
-
-    def _register_prompt_alias(self, func: Callable, meta, config: dict, alias):
-        """Register a prompt alias (placeholder for future implementation)."""
-        # TODO: Implement prompt aliases in future version
-        pass
 
     def _create_mapped_tool_wrapper(self, func: Callable, meta, config: dict, param_mapping: dict) -> Callable:
         """Create a tool wrapper with parameter name mapping."""
