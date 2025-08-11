@@ -23,6 +23,11 @@ make quality          # Runs format, lint, check, and all validations
 
 ## Phase 2: Version Management
 
+**Review changes since last release:**
+```bash
+make changes            # Show commits since last tag
+```
+
 **If version bump requested (patch/minor/major):**
 ```bash
 make bump BUMP=<type>   # Bump version
@@ -31,8 +36,9 @@ make sync               # Ensure environment is synchronized
 ```
 
 **Update CHANGELOG.md:**
+- Use `make changes` output to identify what needs documenting
 - Add new version section with today's date
-- Document changes since last release
+- Group changes by category: Added, Changed, Fixed, Removed
 - Follow Keep a Changelog format
 
 ## Phase 3: Build & Test
@@ -76,11 +82,8 @@ make publish  # Publishes using uv publish
 
 **Verify PyPI publication:**
 ```bash
-# Check version on PyPI
-curl -s https://pypi.org/pypi/replkit2/json | jq -r '.info.version'
-
-# Check with uv (native approach)
-uv add --dry-run replkit2==<version>
+make verify-pypi        # Check RSS feed for latest version (immediate)
+# Note: RSS feed updates immediately, JSON API has CDN delay
 ```
 
 ## Phase 6: Push to GitHub
@@ -93,9 +96,16 @@ git push origin v<version>
 ## Phase 7: Post-Release Verification
 
 **Verify package appears on PyPI:**
-- Check installation: `uv add --dry-run replkit2==<version>`
-- Test with extras: `uv add --dry-run "replkit2[all]==<version>"`
-- View dependency tree: `uv tree --package replkit2`
+```bash
+make verify-pypi        # Confirm version matches local
+```
+
+**Test installation from PyPI (after propagation):**
+```bash
+# Test in isolated environment (downloads from PyPI if available):
+uv run --isolated --with replkit2==<version> \
+  python -c "from replkit2 import App; print('✓ Import successful')"
+```
 
 **Create GitHub release:**
 - Use the new tag

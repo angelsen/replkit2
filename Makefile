@@ -30,6 +30,7 @@ help:
 	@echo "Version:"
 	@echo "  version         Show version"
 	@echo "  bump BUMP=patch|minor|major  Bump version"
+	@echo "  changes         Show commits since last tag"
 	@echo ""
 	@echo "Release:"
 	@echo "  preflight       Pre-release checks"
@@ -135,6 +136,18 @@ bump:
 	NEW_VERSION=$$(uv version --short); \
 	echo "✓ Bumped from $$OLD_VERSION to $$NEW_VERSION"
 	@uv lock --check || echo "⚠ Lock file needs update - run 'uv lock'"
+
+# Show changes since last tag
+.PHONY: changes
+changes:
+	@LAST_TAG=$$(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~10"); \
+	echo "→ Changes since $$LAST_TAG:"; \
+	echo ""; \
+	git log $$LAST_TAG..HEAD --oneline --pretty=format:"  %h %s" | head -20; \
+	echo ""; \
+	echo ""; \
+	COMMIT_COUNT=$$(git rev-list $$LAST_TAG..HEAD --count 2>/dev/null || echo "0"); \
+	echo "  ($$COMMIT_COUNT commits since $$LAST_TAG)"
 
 # Building & Testing
 .PHONY: build
