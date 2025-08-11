@@ -4,6 +4,28 @@
 
 This document outlines potential future features and enhancements for ReplKit2. Items are not commitments but rather ideas under consideration. Community feedback is welcome via GitHub issues.
 
+## Current Release - MCP Tool Aliases (Phase 1) ✅
+
+### Completed in v0.7.3
+Semantic aliases for MCP tools with parameter remapping support.
+
+```python
+@app.command(fastmcp={
+    "type": "tool",
+    "aliases": [
+        {"name": "write", "description": "Write message", "param_mapping": {"command": "message"}},
+        "exec",  # Simple alias
+    ]
+})
+def execute(state, command: str): ...
+```
+
+### Benefits
+- Natural language aliases for LLM interactions
+- Parameter name remapping for semantic clarity
+- Custom descriptions per alias
+- Backward compatible
+
 ## Next Minor Version - FastAPI First-Class Support
 
 ### Goal
@@ -78,6 +100,50 @@ def audit_log(state, command, args, result):
     })
 ```
 
+
+## Near Term - MCP Integration Refactoring (Phase 2)
+
+### Goal
+Reduce code duplication in MCP integration while maintaining backward compatibility.
+
+### Planned Improvements
+- Unify `_create_tool_wrapper` and `_create_prompt_wrapper` methods
+- Extract common signature manipulation into `_create_mcp_signature` helper
+- Consider adding prompt aliases (similar to tool aliases)
+- Simplify wrapper creation logic
+
+### Benefits
+- Cleaner, more maintainable codebase
+- Easier to extend with new features
+- Consistent behavior across component types
+
+## Future - Unified Registration System (Phase 3)
+
+### Goal
+Create a unified registration system for all MCP components (tools, resources, prompts).
+
+### Design Concepts
+```python
+@dataclass
+class Registration:
+    name: str
+    description: str
+    component_type: ComponentType
+    param_mapping: Optional[Dict[str, str]] = None
+    uri_template: Optional[str] = None  # For resources
+    is_alias: bool = False
+```
+
+### Challenges
+- Resources have complex URI patterns (all-optional, greedy, stubs)
+- Need to maintain backward compatibility
+- Must handle parameter validation for resources
+
+### Benefits
+- Single source of truth for registration logic
+- Resources could have aliases (with URI considerations)
+- Reduced code duplication across component types
+- Easier to add new component types
 
 ## Future Considerations
 
