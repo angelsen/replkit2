@@ -10,25 +10,24 @@ Build, test, and release ReplKit2 package to PyPI.
 
 ## Phase 1: Pre-flight Checks
 
-**Run Makefile preflight:**
+**Run comprehensive validation:**
 ```bash
-make preflight
+make preflight        # Validates project, lock file, environment, build
+make quality          # Runs format, lint, check, and all validations
 ```
-This checks:
-- Package exists
-- Build system configured
-- README exists
-- Current version
 
 **Additional checks:**
 - Ensure CHANGELOG.md is up to date for the version
-- Run quality checks: `make format lint check`
+- Review dependency tree: `make deps-tree`
+- Check for outdated packages: `make deps-outdated`
 
 ## Phase 2: Version Management
 
 **If version bump requested (patch/minor/major):**
 ```bash
-make bump BUMP=<type>
+make bump BUMP=<type>   # Bump version
+uv lock                 # Update lock file after version change
+make sync               # Ensure environment is synchronized
 ```
 
 **Update CHANGELOG.md:**
@@ -41,13 +40,15 @@ make bump BUMP=<type>
 **Execute build pipeline:**
 ```bash
 make clean              # Clean old artifacts
-make build              # Build with --no-sources
+make build-check        # Validate build configuration
+make build              # Build package
 make test-build         # Test imports work
 ```
 
 **Verify build artifacts:**
 - Check `dist/` contains wheel and sdist
-- Ensure version numbers match pyproject.toml
+- Build output shows file sizes
+- Version matches: `make version`
 
 ## Phase 4: Git Operations
 
@@ -78,8 +79,8 @@ make publish  # Publishes using uv publish
 # Check version on PyPI
 curl -s https://pypi.org/pypi/replkit2/json | jq -r '.info.version'
 
-# Check with uv
-uv pip install --dry-run replkit2==<version>
+# Check with uv (native approach)
+uv add --dry-run replkit2==<version>
 ```
 
 ## Phase 6: Push to GitHub
@@ -92,8 +93,9 @@ git push origin v<version>
 ## Phase 7: Post-Release Verification
 
 **Verify package appears on PyPI:**
-- Check installation: `uv add replkit2==<version>`
-- Test with extras: `uv add "replkit2[all]==<version>"`
+- Check installation: `uv add --dry-run replkit2==<version>`
+- Test with extras: `uv add --dry-run "replkit2[all]==<version>"`
+- View dependency tree: `uv tree --package replkit2`
 
 **Create GitHub release:**
 - Use the new tag
@@ -102,9 +104,11 @@ git push origin v<version>
 
 ## Key Strategies
 
+- **Native uv commands**: No `uv pip`, use `uv sync`, `uv add`, etc.
+- **Automatic lock management**: uv handles lock file in normal operations
 - **Package-local builds**: dist/ directory in project root
 - **PyPI compatibility first**: Fix any issues before building
 - **Atomic releases**: Complete each phase before moving to next
-- **Version consistency**: pyproject.toml drives all versioning
+- **Version consistency**: Use `uv version --short` for all version checks
 
-Start by checking if the package exists and confirming the version to release.
+Start by running `make preflight` to validate the project state.

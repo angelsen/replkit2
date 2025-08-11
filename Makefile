@@ -11,17 +11,21 @@ help:
 	@echo "ReplKit2 Development"
 	@echo ""
 	@echo "Development:"
-	@echo "  sync            Install all dependencies"
+	@echo "  sync            Install all dependencies (including optional)"
 	@echo ""
 	@echo "Quality:"
 	@echo "  format          Format code"
 	@echo "  lint            Fix linting issues"
 	@echo "  check           Type check"
+	@echo "  quality         Run all quality checks"
 	@echo ""
 	@echo "Dependencies:"
 	@echo "  add DEP=name              Add dependency"
+	@echo "  remove DEP=name           Remove dependency"
 	@echo "  add-opt GROUP=g DEP=name  Add optional"
 	@echo "  add-dev DEP=name          Add dev dependency"
+	@echo "  deps-tree                 Show dependency tree"
+	@echo "  deps-outdated             Check for outdated packages"
 	@echo ""
 	@echo "Version:"
 	@echo "  version         Show version"
@@ -30,17 +34,21 @@ help:
 	@echo "Release:"
 	@echo "  preflight       Pre-release checks"
 	@echo "  build           Build package"
+	@echo "  build-check     Validate build config"
 	@echo "  test-build      Test built package"
 	@echo "  release         Tag release"
 	@echo "  publish         Publish to PyPI"
 	@echo "  full-release    Complete workflow"
+	@echo ""
+	@echo "Utilities:"
 	@echo "  clean           Clean build artifacts"
+	@echo "  export-requirements  Export requirements.txt"
 
 # Development
 .PHONY: sync
 sync:
 	@echo "→ Syncing dependencies..."
-	@uv sync
+	@uv sync --all-extras
 	@echo "✓ Done"
 
 # Quality
@@ -61,6 +69,11 @@ check:
 	@echo "→ Type checking..."
 	@basedpyright
 	@echo "✓ Done"
+
+# Quality pipeline
+.PHONY: quality
+quality: format lint check
+	@echo "✓ All quality checks passed"
 
 # Dependencies
 .PHONY: add
@@ -93,11 +106,21 @@ add-dev:
 	@uv add --dev $(DEP)
 	@echo "✓ Done"
 
+.PHONY: remove
+remove:
+	@if [ -z "$(DEP)" ]; then \
+		echo "✗ Usage: make remove DEP=package"; \
+		exit 1; \
+	fi
+	@echo "→ Removing $(DEP)..."
+	@uv remove $(DEP)
+	@echo "✓ Done"
+
 # Version Management
 .PHONY: version
 version:
-	@VERSION=$$(grep '^version' pyproject.toml | cut -d'"' -f2); \
-	echo "$(PACKAGE): $$VERSION"
+	@echo -n "$(PACKAGE): "
+	@uv version --short
 
 .PHONY: bump
 bump:
@@ -106,16 +129,25 @@ bump:
 		exit 1; \
 	fi
 	@echo "→ Bumping $(PACKAGE) version ($(BUMP))..."
-	@uv version --bump $(BUMP) --no-sync
-	@VERSION=$$(grep '^version' pyproject.toml | cut -d'"' -f2); \
-	echo "✓ Bumped to $$VERSION"
+	@OLD_VERSION=$$(uv version --short); \
+	uv version --bump $(BUMP) --no-sync; \
+	NEW_VERSION=$$(uv version --short); \
+	echo "✓ Bumped from $$OLD_VERSION to $$NEW_VERSION"
+	@uv lock --check || echo "⚠ Lock file needs update - run 'uv lock'"
 
 # Building & Testing
 .PHONY: build
 build:
 	@echo "→ Building $(PACKAGE) package..."
-	@uv build --no-sources --out-dir dist
+	@uv build --out-dir dist
+	@echo "→ Build artifacts:"
+	@ls -lh dist/*.whl dist/*.tar.gz 2>/dev/null | tail -2
 	@echo "✓ Built in dist/"
+
+.PHONY: build-check
+build-check:
+	@echo "→ Validating build configuration..."
+	@[ -f pyproject.toml ] && grep -q "^\[build-system\]" pyproject.toml && echo "✓ Build configuration valid" || (echo "✗ Build configuration invalid" && exit 1)
 
 .PHONY: test-build
 test-build:
@@ -136,24 +168,25 @@ test-build:
 .PHONY: preflight
 preflight:
 	@echo "→ Pre-flight checks for $(PACKAGE)..."
-	@echo -n "  Package exists: "; \
-	[ -f pyproject.toml ] && echo "✓" || (echo "✗" && exit 1)
-	@echo -n "  Build system: "; \
-	grep -q '^\[build-system\]' pyproject.toml && echo "✓" || echo "✗"
-	@echo -n "  Has README: "; \
-	[ -f README.md ] && echo "✓" || echo "✗"
+	@echo -n "  Project structure: "; \
+	[ -f pyproject.toml ] && [ -f README.md ] && echo "✓" || (echo "✗" && exit 1)
+	@echo -n "  Lock file: "; \
+	uv lock --check && echo "✓" || (echo "✗ needs update - run 'uv lock'" && exit 1)
+	@echo -n "  Build config: "; \
+	grep -q "^\[build-system\]" pyproject.toml && echo "✓" || echo "✗"
 	@echo -n "  Version: "; \
-	grep '^version' pyproject.toml | cut -d'"' -f2
+	uv version --short
 
 # Release Management
 .PHONY: release
 release:
-	@VERSION=$$(grep '^version' pyproject.toml | cut -d'"' -f2); \
+	@VERSION=$$(uv version --short); \
 	echo "→ Releasing $(PACKAGE) v$$VERSION..."; \
 	git tag -a v$$VERSION -m "Release $(PACKAGE) v$$VERSION"; \
-	uv pip install -e .; \
+	echo "→ Installing locally with all extras..."; \
+	uv sync --all-extras; \
 	echo "✓ Tagged v$$VERSION"; \
-	echo "✓ Installed $(PACKAGE) locally"; \
+	echo "✓ Installed $(PACKAGE)[all] locally"; \
 	echo ""; \
 	echo "Next steps:"; \
 	echo "  git push origin v$$VERSION"
@@ -179,6 +212,24 @@ full-release: preflight build test-build
 	@echo "  1. make release     # Create git tag"
 	@echo "  2. make publish     # Publish to PyPI"
 	@echo "  3. git push origin && git push origin --tags"
+
+# Dependency utilities
+.PHONY: deps-tree
+deps-tree:
+	@echo "→ Dependency tree..."
+	@uv tree --depth 3
+
+.PHONY: deps-outdated
+deps-outdated:
+	@echo "→ Checking for outdated dependencies..."
+	@uv tree --outdated || true
+
+# Export requirements
+.PHONY: export-requirements
+export-requirements:
+	@echo "→ Exporting requirements..."
+	@uv export --format requirements.txt --output-file requirements.txt --all-extras
+	@echo "✓ Exported to requirements.txt"
 
 # Clean build artifacts
 .PHONY: clean
