@@ -5,6 +5,19 @@ All notable changes to ReplKit2 will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.5] - 2025-08-11
+
+### Added
+- Type definition for MCP tool aliases (`FastMCPToolAlias`)
+  - Includes `name`, `description`, and `param_mapping` fields
+  - Fixes type checking errors in projects using tool aliases
+
+### Improved
+- Release workflow enhancements
+  - Added `make changes` command to show commits since last tag
+  - Added `make verify-pypi` using RSS feed for instant verification
+  - Simplified CLAUDE.md for everyday development focus
+
 ## [0.7.4] - 2025-08-11
 
 ### Fixed

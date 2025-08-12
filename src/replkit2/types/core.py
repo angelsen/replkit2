@@ -2,12 +2,21 @@ from dataclasses import dataclass, field
 from typing import Any, TypedDict, Literal, NotRequired
 
 
+class FastMCPToolAlias(TypedDict):
+    """Alias configuration for MCP tools."""
+
+    name: str
+    description: NotRequired[str]
+    param_mapping: NotRequired[dict[str, str]]
+
+
 class FastMCPTool(TypedDict):
     type: Literal["tool"]
     tags: NotRequired[set[str]]
     description: NotRequired[str]
     mime_type: NotRequired[str]
     enabled: NotRequired[bool]
+    aliases: NotRequired[list[str | FastMCPToolAlias]]
 
 
 class FastMCPResource(TypedDict):
