@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Changed
+- Made changelog relkit-compatible by adding [Unreleased] section
+- Removed date stamps from early version entries (0.1.0-0.3.0) for consistency
 
 ### Fixed
 
