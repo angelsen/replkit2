@@ -44,12 +44,22 @@ class FastMCPIntegration:
     def _register_tools(self):
         """Register tools with FastMCP server."""
         assert self.server is not None, "Server must be created first"
-        for name, (func, meta) in self.app._mcp_components["tools"].items():
-            config = {**self.app.fastmcp_defaults, **meta.fastmcp}
-            wrapper = self._create_tool_wrapper(func, meta, config)
+        for key, item in self.app._mcp_components["tools"].items():
+            # Handle both old (func, meta) and new (func, meta, config) formats
+            if len(item) == 3:
+                func, meta, config = item
+                config = {**self.app.fastmcp_defaults, **config}
+            else:
+                func, meta = item
+                config = {**self.app.fastmcp_defaults, **meta.fastmcp}
+
+            # Extract function name from key (might be tuple)
+            func_name = key if isinstance(key, str) else key[0]
+
+            wrapper = self._create_wrapper(func, meta, config)
 
             tool_kwargs = {
-                "name": config.get("name", name),
+                "name": config.get("name", func_name),
                 "description": config.get("description", func.__doc__),
                 "tags": config.get("tags"),
                 "enabled": config.get("enabled", True),
@@ -72,8 +82,20 @@ class FastMCPIntegration:
         """Register resources based on their parameter patterns."""
         from ..validation import validate_mcp_resource_params
 
-        for name, (func, meta) in self.app._mcp_components["resources"].items():
-            config = {**self.app.fastmcp_defaults, **meta.fastmcp}
+        for key, item in self.app._mcp_components["resources"].items():
+            # Handle both old (func, meta) and new (func, meta, config) formats
+            if len(item) == 3:
+                func, meta, config = item
+                config = {**self.app.fastmcp_defaults, **config}
+            else:
+                func, meta = item
+                config = {**self.app.fastmcp_defaults, **meta.fastmcp}
+
+            # Check for explicit args override
+            if "args" in config and not config.get("args"):
+                # Empty args list - force no parameters
+                self._register_simple_resource(func, meta, config)
+                continue
 
             # Validate resource parameters follow URI constraints
             validate_mcp_resource_params(func)
@@ -91,12 +113,22 @@ class FastMCPIntegration:
     def _register_prompts(self):
         """Register prompts with FastMCP server."""
         assert self.server is not None, "Server must be created first"
-        for name, (func, meta) in self.app._mcp_components["prompts"].items():
-            config = {**self.app.fastmcp_defaults, **meta.fastmcp}
-            wrapper = self._create_prompt_wrapper(func, meta, config)
+        for key, item in self.app._mcp_components["prompts"].items():
+            # Handle both old (func, meta) and new (func, meta, config) formats
+            if len(item) == 3:
+                func, meta, config = item
+                config = {**self.app.fastmcp_defaults, **config}
+            else:
+                func, meta = item
+                config = {**self.app.fastmcp_defaults, **meta.fastmcp}
+
+            # Extract function name from key
+            func_name = key if isinstance(key, str) else key[0]
+
+            wrapper = self._create_wrapper(func, meta, config)
 
             self.server.prompt(
-                name=config.get("name", name),
+                name=config.get("name", func_name),
                 description=config.get("description", func.__doc__),
                 tags=config.get("tags"),
                 enabled=config.get("enabled", True),
@@ -195,7 +227,12 @@ class FastMCPIntegration:
     def _register_simple_resource(self, func: Callable, meta, config: dict):
         """Register simple resource with direct parameter mapping."""
         assert self.server is not None, "Server must be created first"
-        uri = config.get("uri") or self._generate_simple_uri(func)
+
+        # Handle explicit empty args
+        if "args" in config and not config["args"]:
+            uri = f"{self.app.uri_scheme}://{func.__name__}"
+        else:
+            uri = config.get("uri") or self._generate_simple_uri(func)
 
         def wrapper(**kwargs):
             # Filter dash placeholders
@@ -221,21 +258,8 @@ class FastMCPIntegration:
 
     # === Wrapper Creation ===
 
-    def _create_tool_wrapper(self, func: Callable, meta, config: dict) -> Callable:
-        """Create wrapper for tool functions."""
-        import functools
-
-        @functools.wraps(func)
-        def wrapper(**kwargs):
-            return self._call_function_with_formatting(func, kwargs, meta, config)
-
-        # Create signature without state parameter
-        wrapper.__signature__ = self._create_simple_signature(func)  # pyright: ignore[reportAttributeAccessIssue]
-
-        return wrapper
-
-    def _create_prompt_wrapper(self, func: Callable, meta, config: dict) -> Callable:
-        """Create wrapper for prompt functions."""
+    def _create_wrapper(self, func: Callable, meta, config: dict) -> Callable:
+        """Create wrapper for MCP functions (tools, prompts, etc.)."""
         import functools
 
         @functools.wraps(func)
@@ -251,11 +275,16 @@ class FastMCPIntegration:
 
     def _call_function_with_formatting(self, func: Callable, kwargs: dict, meta, config: dict):
         """Call function with state injection and apply formatting if needed."""
+        # Filter to allowed args if specified
+        if "args" in config:
+            allowed_args = config["args"]
+            kwargs = {k: v for k, v in kwargs.items() if k in allowed_args}
+
         # Filter out None values to let defaults take effect
         filtered_kwargs = {k: v for k, v in kwargs.items() if v is not None}
 
         # Call original function with state
-        result = func(self.app._state, **filtered_kwargs)
+        result = func(self.app.state, **filtered_kwargs)
 
         # Apply formatting for text-based MIME types
         mime_type = str(config.get("mime_type") or "")
@@ -522,7 +551,7 @@ class FastMCPIntegration:
             wrapper = self._create_mapped_tool_wrapper(func, meta, config, param_mapping)
         else:
             # Use standard wrapper
-            wrapper = self._create_tool_wrapper(func, meta, config)
+            wrapper = self._create_wrapper(func, meta, config)
 
         # Override the function name for the alias
         wrapper.__name__ = alias_name

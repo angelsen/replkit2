@@ -75,8 +75,8 @@ class CLIIntegration:
         @functools.wraps(func)
         def cli_wrapper(*args, **kwargs):
             # Inject state if needed
-            if self.app._state is not None:
-                result = func(self.app._state, *args, **kwargs)
+            if self.app.state is not None:
+                result = func(self.app.state, *args, **kwargs)
             else:
                 result = func(*args, **kwargs)
 

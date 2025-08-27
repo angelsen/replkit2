@@ -1,6 +1,6 @@
 """Core App class for ReplKit2."""
 
-from typing import Any, Callable, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING, Generic, TypeVar
 import inspect
 
 from .formatters import Formatter
@@ -13,6 +13,10 @@ if TYPE_CHECKING:
     from typer import Typer
     from .integrations.mcp import FastMCPIntegration
     from .integrations.cli import CLIIntegration
+
+
+# Type variable for state
+S = TypeVar("S")
 
 
 class SilentResult:
@@ -55,20 +59,26 @@ class SilentResult:
         return self._data
 
 
-class App:
+class App(Generic[S]):
     """Flask-style REPL application with command registration."""
+
+    state: S | None
 
     def __init__(
         self,
         name: str,
-        state_class: type | None = None,
+        state_class: type[S] | None = None,
         formatter: Formatter | None = None,
         uri_scheme: str | None = None,
         fastmcp: FastMCPDefaults | None = None,
+        state_args: dict | None = None,
     ):
         self.name = name
         self.state_class = state_class
-        self._state = state_class() if state_class else None
+        if state_class:
+            self.state = state_class(**state_args) if state_args else state_class()
+        else:
+            self.state = None
         self.formatter = formatter or TextFormatter()
         self.uri_scheme = uri_scheme or name
         self.fastmcp_defaults = fastmcp or {}
@@ -105,11 +115,19 @@ class App:
         """
 
         def decorator(f: Callable) -> Callable:
+            # Handle list of configs
+            configs = []
+            if fastmcp:
+                if isinstance(fastmcp, list):
+                    configs = fastmcp
+                else:
+                    configs = [fastmcp]
+
             # Determine if we should validate types
             should_validate = strict_types
             if should_validate is None:
-                # Auto-strict for fastmcp commands
-                should_validate = bool(fastmcp and fastmcp.get("enabled", True))
+                # Auto-strict if any fastmcp config is enabled
+                should_validate = any(cfg.get("enabled", True) for cfg in configs) if configs else False
 
             if should_validate:
                 validate_mcp_types(f)
@@ -123,10 +141,14 @@ class App:
             for alias in meta.aliases:
                 self._commands[alias] = (f, meta)
 
-            if fastmcp and fastmcp.get("enabled", True):
-                mcp_type = fastmcp.get("type")
-                if mcp_type in ("tool", "resource", "prompt"):
-                    self._mcp_components[f"{mcp_type}s"][f.__name__] = (f, meta)
+            # Register MCP components (handle both single and list configs)
+            for i, config in enumerate(configs):
+                if config.get("enabled", True):
+                    mcp_type = config.get("type")
+                    if mcp_type in ("tool", "resource", "prompt"):
+                        # Use tuple key for multiple registrations
+                        key = (f.__name__, i) if len(configs) > 1 else f.__name__
+                        self._mcp_components[f"{mcp_type}s"][key] = (f, meta, config)
 
             # Track CLI commands
             if not typer or typer.get("enabled", True):
@@ -146,8 +168,10 @@ class App:
 
         func, meta = self._commands[command_name]
 
-        if self._state is not None:
-            result = func(self._state, *args, **kwargs)
+        # Check if function expects state parameter
+        sig = inspect.signature(func)
+        if self.state is not None and "state" in sig.parameters:
+            result = func(self.state, *args, **kwargs)
         else:
             result = func(*args, **kwargs)
 
@@ -165,6 +189,10 @@ class App:
                 namespace = frame.f_back.f_globals
             else:
                 raise RuntimeError("Cannot determine caller's namespace")
+
+        # Auto-expose state for debugging
+        if self.state is not None:
+            namespace["state"] = self.state
 
         for name, (func, _) in self._commands.items():
             if func.__name__ != name:
@@ -203,12 +231,16 @@ class App:
             help_wrapper.__doc__ = "Show available commands."
             namespace["help"] = help_wrapper
 
-    def using(self, formatter: Formatter) -> "App":
+    def using(self, formatter: Formatter) -> "App[S]":
         """Create a new App instance using a different formatter."""
         new_app = App(
-            self.name, type(self._state) if self._state else None, formatter, self.uri_scheme, self.fastmcp_defaults
+            self.name,
+            self.state_class,
+            formatter,
+            self.uri_scheme,
+            self.fastmcp_defaults,
         )
-        new_app._state = self._state
+        new_app.state = self.state
         new_app._commands = self._commands
         new_app._mcp_components = self._mcp_components
         return new_app

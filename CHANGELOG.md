@@ -8,8 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Generic typing support for `App[S]` providing better IDE hints for state
+- `state_args` parameter in `App.__init__()` for passing initialization arguments to state class
+- Auto-expose `state` in REPL namespace for easier debugging
+- Dual-mode MCP registration support - commands can be both resources and tools
+  - `fastmcp` parameter now accepts list of configs: `fastmcp=[{...}, {...}]`
+  - `args` field in MCP configs for explicit parameter control
+  - Empty `args: []` forces resource with no parameters
 
 ### Changed
+- **BREAKING**: State attribute is now public (`app.state`) instead of private (`app._state`)
+  - Migration: Replace `app._state` with `app.state` in your code
+  - This provides cleaner API access without accessing private attributes
+- Enhanced `execute()` method with smart state injection based on function signature
+  - Commands can now opt-in to receive state parameter instead of always requiring it
+- Improved `using()` method to preserve state_class reference correctly
+- Simplified MCP integration internals
+  - Unified wrapper creation with single `_create_wrapper()` method
+  - Optimized parameter filtering in `_call_function_with_formatting()`
 
 ### Fixed
 

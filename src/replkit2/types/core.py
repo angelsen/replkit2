@@ -17,6 +17,7 @@ class FastMCPTool(TypedDict):
     mime_type: NotRequired[str]
     enabled: NotRequired[bool]
     aliases: NotRequired[list[str | FastMCPToolAlias]]
+    args: NotRequired[list[str]]
 
 
 class FastMCPResource(TypedDict):
@@ -27,6 +28,7 @@ class FastMCPResource(TypedDict):
     mime_type: NotRequired[str]
     enabled: NotRequired[bool]
     stub: NotRequired[bool | dict[str, Any]]
+    args: NotRequired[list[str]]
 
 
 class FastMCPPrompt(TypedDict):
@@ -42,7 +44,8 @@ class FastMCPDisabled(TypedDict):
     enabled: Literal[False]
 
 
-FastMCPConfig = FastMCPTool | FastMCPResource | FastMCPPrompt | FastMCPDisabled
+FastMCPSingleConfig = FastMCPTool | FastMCPResource | FastMCPPrompt | FastMCPDisabled
+FastMCPConfig = FastMCPSingleConfig | list[FastMCPSingleConfig]
 
 
 class FastMCPDefaults(TypedDict, total=False):
@@ -78,5 +81,5 @@ class CommandMeta:
     display: str | None = None
     display_opts: dict[str, Any] = field(default_factory=dict)
     aliases: list[str] = field(default_factory=list)
-    fastmcp: FastMCPConfig | None = None
+    fastmcp: FastMCPConfig | None = None  # Can be single config or list of configs
     typer: TyperCLI | None = None
