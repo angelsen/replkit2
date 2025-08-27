@@ -1,124 +1,91 @@
 ---
-description: Build, test, and publish ReplKit2 with proper versioning and PyPI deployment
+description: Build, test, and release Python packages using relkit
 argument-hint: [version-bump]
-allowed-tools: Bash, Read, Edit, MultiEdit, Grep, Glob, Task
+allowed-tools: Bash, Read, Edit, MultiEdit, Grep, Glob
 ---
 
-Build, test, and release ReplKit2 package to PyPI.
+Execute a complete package release workflow using relkit.
 
-**Your task: Execute a complete package release workflow.**
+**Your task: Release a package (or the entire project) using relkit's atomic workflow.**
 
-## Phase 1: Pre-flight Checks
+## Step 1: Status Check
 
-**Run comprehensive validation:**
 ```bash
-make preflight        # Validates project, lock file, environment, build
-make quality          # Runs format, lint, check, and all validations
+relkit status
 ```
 
-**Additional checks:**
-- Ensure CHANGELOG.md is up to date for the version
-- Review dependency tree: `make deps-tree`
-- Check for outdated packages: `make deps-outdated`
+Review the output to ensure:
+- Git is clean (no uncommitted changes)
+- Changelog has entries
+- Code quality checks pass
 
-## Phase 2: Version Management
+## Step 2: Quality Checks
 
-**Review changes since last release:**
 ```bash
-make changes            # Show commits since last tag
+# Run all checks with auto-fix
+relkit check all --fix
+
+# Or run specific checks
+relkit check format --fix
+relkit check lint --fix
+relkit check types
 ```
 
-**If version bump requested (patch/minor/major):**
-```bash
-make bump BUMP=<type>   # Bump version
-uv lock                 # Update lock file after version change
-make sync               # Ensure environment is synchronized
-```
+## Step 3: Update CHANGELOG
 
-**Update CHANGELOG.md:**
-- Use `make changes` output to identify what needs documenting
-- Add new version section with today's date
-- Group changes by category: Added, Changed, Fixed, Removed
+Ensure CHANGELOG.md has entries in the [Unreleased] section:
+- Document what was Added, Changed, Fixed, or Removed
+- Use clear, user-focused descriptions
 - Follow Keep a Changelog format
 
-## Phase 3: Build & Test
-
-**Execute build pipeline:**
-```bash
-make clean              # Clean old artifacts
-make build-check        # Validate build configuration
-make build              # Build package
-make test-build         # Test imports work
-```
-
-**Verify build artifacts:**
-- Check `dist/` contains wheel and sdist
-- Build output shows file sizes
-- Version matches: `make version`
-
-## Phase 4: Git Operations
-
-**Commit any pending changes:**
-```bash
-git add -A
-git commit -m "chore: prepare v<version> for release
-
-- Update version to <version>
-- Update CHANGELOG
-- <any other changes>"
-```
-
-**Create release tag:**
-```bash
-make release  # Creates git tag, installs locally
-```
-
-## Phase 5: Distribution
-
-**Publish to PyPI:**
-```bash
-make publish  # Publishes using uv publish
-```
-
-**Verify PyPI publication:**
-```bash
-make verify-pypi        # Check RSS feed for latest version (immediate)
-# Note: RSS feed updates immediately, JSON API has CDN delay
-```
-
-## Phase 6: Push to GitHub
+## Step 4: Version Bump & Release
 
 ```bash
-git push origin main
-git push origin v<version>
+relkit bump <patch|minor|major>
 ```
 
-## Phase 7: Post-Release Verification
+This atomically:
+- Updates version in pyproject.toml
+- Moves [Unreleased] to new version in CHANGELOG
+- Commits changes
+- Creates tag (v1.0.0)
+- Pushes to remote
 
-**Verify package appears on PyPI:**
+## Step 5: Build & Test
+
 ```bash
-make verify-pypi        # Confirm version matches local
+# Build distribution files
+relkit build
+
+# Test the built package
+relkit test
 ```
 
-**Test installation from PyPI (after propagation):**
+## Step 6: Publish
+
 ```bash
-# Test in isolated environment (downloads from PyPI if available):
-uv run --isolated --with replkit2==<version> \
-  python -c "from replkit2 import App; print('✓ Import successful')"
+# Publish to PyPI (will prompt for confirmation)
+relkit publish
 ```
 
-**Create GitHub release:**
-- Use the new tag
-- Copy relevant CHANGELOG section
-- Highlight major features
+Note: Private packages (with "Private :: Do Not Upload" classifier) are blocked from PyPI.
 
-## Key Strategies
+## Key Points
 
-- **Native uv commands**: No `uv pip`, use `uv sync`, `uv add`, etc.
-- **Automatic lock management**: uv handles lock file in normal operations
-- **Package-local builds**: dist/ directory in project root
-- **PyPI compatibility first**: Fix any issues before building
-- **Atomic releases**: Complete each phase before moving to next
-- **Version consistency**: Use `uv version --short` for all version checks
+- **relkit enforces**: Clean git state before operations
+- **relkit blocks**: Building if dist/ has old files  
+- **relkit requires**: CHANGELOG entries for releases
+- **relkit protects**: Against accidental public releases
 
-Start by running `make preflight` to validate the project state.
+## Quick One-Liner
+
+For a full release after changes are ready:
+```bash
+relkit check all --fix && \
+relkit bump patch && \
+relkit build && \
+relkit test && \
+relkit publish
+```
+
+Start by running `relkit status` to see what needs to be done.
