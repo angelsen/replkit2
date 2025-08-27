@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## [0.8.0] - 2025-08-27
+
+### Added
 - Generic typing support for `App[S]` providing better IDE hints for state
 - `state_args` parameter in `App.__init__()` for passing initialization arguments to state class
 - Auto-expose `state` in REPL namespace for easier debugging
