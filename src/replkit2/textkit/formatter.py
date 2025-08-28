@@ -49,7 +49,10 @@ class TextFormatter(Formatter):
             if isinstance(data, list) and data and isinstance(data[0], dict):
                 if not headers:
                     headers = list(data[0].keys())
-                rows = [[row.get(h, "") for h in headers] for row in data]
+                # Case-insensitive header matching: find first key that matches case-insensitively
+                rows = [
+                    [next((v for k, v in row.items() if k.lower() == h.lower()), "") for h in headers] for row in data
+                ]
                 return table(rows, headers)
 
             # Handle list of lists

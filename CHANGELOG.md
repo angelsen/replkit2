@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 ### Fixed
+- Case-insensitive header matching in table formatter
+  - Headers like "ID", "Method", "Status" now match data keys like "id", "method", "status"
+  - Maintains backward compatibility while making the framework more forgiving
 
 ### Removed
 
