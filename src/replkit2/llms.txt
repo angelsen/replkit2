@@ -125,7 +125,7 @@ def dashboard(state):
     return {"summary": "Active: 5", "details": state.items}
 ```
 
-## Markdown with Table and Alert (v0.10.0+)
+## Markdown with Table and Alert (v0.9.0+)
 
 ```python
 from replkit2.textkit.markdown import markdown
@@ -151,13 +151,13 @@ def report(state):
         ]
     }
 
-# Or use builder (note: list_() not list() in v0.10.0+)
+# Or use builder (note: list_() not list() in v0.9.0+)
 @app.command(display="markdown")
 def guide(state):
     return (
         markdown()
         .heading("User Guide")
-        .alert("Breaking change in v0.10.0", level="warning")
+        .alert("Breaking change in v0.9.0", level="warning")
         .list_(["Use list_() not list()", "Tables support transforms"])
         .build()
     )

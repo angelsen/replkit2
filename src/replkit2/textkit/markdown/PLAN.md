@@ -174,7 +174,7 @@ def network(state):
 - **No backward compatibility** - This is a clean break
 - **No deprecation warnings** - Old code will fail immediately
 - **No migration tools** - Users must update imports manually
-- **Version bump** - This warrants v0.10.0 (not 1.0.0)
+- **Version bump** - This warrants v0.9.0 (not 1.0.0)
 
 ## Timeline
 
@@ -188,7 +188,7 @@ Estimated: 2-3 days for full implementation and testing
 **Blockers**: None  
 **Next Steps**: Testing and integration with WebTap
 
-## Extensible Truncation System (v0.10.1)
+## Extensible Truncation System (v0.9.1)
 
 The markdown module now supports command-level truncation/transforms that are automatically applied to supporting elements:
 
