@@ -1,0 +1,124 @@
+# ReplKit2 Markdown Module Guide
+
+## Basic Usage
+
+```python
+@app.command(display="markdown")
+def show_report(state):
+    return {
+        "elements": [
+            {"type": "heading", "content": "Report", "level": 1},
+            {"type": "alert", "content": "3 issues found", "level": "warning"},
+            {"type": "table", 
+             "headers": ["Name", "Status"],
+             "rows": [{"Name": "Service", "Status": "Running"}]},
+        ]
+    }
+```
+
+## Command-Level Truncation
+
+```python
+@app.command(
+    display="markdown",
+    truncate={"URL": {"max": 50, "mode": "middle"}},  # Applied to all tables
+    transforms={"Size": "format_size"}                 # Bytes → human readable
+)
+def list_pages(state):
+    return {
+        "elements": [
+            {"type": "table",
+             "headers": ["URL", "Size"],
+             "rows": state.pages}  # Full data, truncated at display
+        ]
+    }
+```
+
+## Element Types
+
+### Table
+```python
+{"type": "table",
+ "headers": ["Col1", "Col2"],
+ "rows": [{"Col1": "val1", "Col2": "val2"}],
+ "truncate": {"Col1": {"max": 20}},      # Optional, overrides command-level
+ "transforms": {"Col2": "format_size"}}  # Optional, overrides command-level
+```
+
+### Alert
+```python
+{"type": "alert",
+ "content": "Message text",
+ "level": "error"}  # error, warning, info, success
+```
+
+### Others
+```python
+{"type": "heading", "content": "Title", "level": 2}
+{"type": "text", "content": "Paragraph text"}
+{"type": "code_block", "content": "code", "language": "python"}
+{"type": "list", "items": ["item1", "item2"], "ordered": False}
+{"type": "blockquote", "content": "Quoted text"}
+```
+
+## Truncation Modes
+
+- `"end"`: Keep start, add `...` at end (default)
+- `"middle"`: Keep start/end, add `...` in middle  
+- `"start"`: Keep end, add `...` at start
+
+## Transform Functions
+
+Built-in transforms for table columns:
+- `format_size`: 2048576 → "2.0M"
+- `format_timestamp`: 1704067200000 → "14:30:45"
+- `format_duration`: 123.4 → "2m 3s"
+- `format_number`: 1000000 → "1,000,000"
+- `format_percentage`: 0.856 → "85.6%"
+- `format_boolean`: True → "✓", False → "✗"
+
+## Builder Pattern
+
+```python
+from replkit2.textkit.markdown import markdown
+
+@app.command(display="markdown")
+def build_doc(state):
+    return (
+        markdown()
+        .heading("Title")
+        .alert("Important!", level="warning")
+        .text("Paragraph")
+        .list_(["item1", "item2"])  # Note: list_() not list()
+        .build()
+    )
+```
+
+## Adding Truncation to New Elements
+
+Elements opt-in by setting class attributes:
+
+```python
+class MyElement(MarkdownElement):
+    element_type = "my_element"
+    supports_truncation = True  # Enable truncation
+    supports_transforms = True  # Enable transforms
+    
+    def __init__(self, content, truncate=None, transforms=None):
+        self.content = content
+        self.truncate = truncate
+        self.transforms = transforms
+    
+    def render(self):
+        # Apply truncation/transforms during rendering
+        if self.truncate:
+            content = self._truncate_value(self.content, self.truncate)
+        return f"Rendered: {content}"
+```
+
+## Key Points
+
+- Command-level settings are defaults for all supporting elements
+- Element-level settings override command defaults
+- Full data preserved, truncation happens at render time
+- Works with MCP when `mime_type="text/markdown"`

@@ -6,6 +6,7 @@ avoiding 'unknown' parameter types that confuse MCP clients.
 
 from typing import Any, Callable, get_origin, get_args, Union, Literal
 import inspect
+import types
 
 
 # Types that work correctly in MCP schemas
@@ -83,6 +84,11 @@ def is_valid_mcp_type(annotation: Any) -> bool:
     if origin is Union:
         return False
 
+    # Python 3.10+ union syntax (T | None) creates types.UnionType
+    # Check if available (3.10+) and if annotation is UnionType
+    if hasattr(types, "UnionType") and isinstance(annotation, types.UnionType):
+        return False
+
     # Any type causes 'unknown' in MCP
     from typing import Any as TypingAny
 
@@ -121,16 +127,20 @@ def get_type_error_message(func_name: str, param_name: str, annotation: Any) -> 
     """
     origin = get_origin(annotation)
 
+    # Check if it's a UnionType (Python 3.10+ | syntax)
+    is_union_type = hasattr(types, "UnionType") and isinstance(annotation, types.UnionType)
+
     # Special messages for common mistakes
-    if origin is Union:
-        args = get_args(annotation)
+    if origin is Union or is_union_type:
+        args = get_args(annotation)  # Works for both Union and UnionType
         if type(None) in args:
-            # This is Optional[T]
+            # This is Optional[T] or T | None
             other_type = next(arg for arg in args if arg is not type(None))
+            type_repr = str(annotation) if is_union_type else f"Optional[{other_type.__name__}]"
             return (
-                f"Command '{func_name}': Parameter '{param_name}' uses Optional[{other_type.__name__}].\n"
-                f"Optional types cause 'unknown' in MCP clients.\n"
-                f"Use '{other_type.__name__} = None' instead of 'Optional[{other_type.__name__}]'.\n"
+                f"Command '{func_name}': Parameter '{param_name}' uses {type_repr}.\n"
+                f"Optional/Union types cause 'unknown' in MCP clients.\n"
+                f"Use '{other_type.__name__} = None' instead of '{type_repr}'.\n"
                 f"Example: def {func_name}(state, {param_name}: {other_type.__name__} = None)"
             )
         else:
@@ -153,8 +163,10 @@ def get_type_error_message(func_name: str, param_name: str, annotation: Any) -> 
 
     # Check if it's a custom class
     if hasattr(annotation, "__module__") and not annotation.__module__.startswith("typing"):
+        # Use getattr to safely get __name__, with fallback to str representation
+        type_name = getattr(annotation, "__name__", str(annotation))
         return (
-            f"Command '{func_name}': Parameter '{param_name}' uses custom type '{annotation.__name__}'.\n"
+            f"Command '{func_name}': Parameter '{param_name}' uses custom type '{type_name}'.\n"
             f"Custom classes cause 'unknown' in MCP clients.\n"
             f"Use primitive types (str, int, float, bool, list, dict) or their typed versions "
             f"(List[str], Dict[str, int])."

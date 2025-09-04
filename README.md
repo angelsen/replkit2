@@ -98,6 +98,17 @@ def show_tree(state):
 @app.command(display="progress", show_percentage=True)
 def show_progress(state):
     return {"value": 7, "total": 10}
+
+@app.command(display="markdown")
+def show_markdown(state):
+    return {
+        "elements": [
+            {"type": "heading", "content": "Status Report"},
+            {"type": "alert", "content": "System is operational", "level": "success"},
+            {"type": "table", "headers": ["Task", "Status"], 
+             "rows": [{"Task": "Backup", "Status": "Complete"}]},
+        ]
+    }
 ```
 
 ## 🔌 MCP Integration

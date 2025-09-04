@@ -36,7 +36,7 @@ def add_item(state, name: str, status: str = "active"):
 - `display="tree"` with nested dict
 - `display="list"` with list of strings
 - `display="progress"` with {"value": n, "total": m}
-- `display="markdown"` with {"elements": [...]}
+- `display="markdown"` with {"elements": [...]} and optional {"frontmatter": {...}}
 
 ## Add MCP support
 
@@ -123,6 +123,44 @@ def custom_display(data, meta, formatter):
 @app.command(display="custom")
 def dashboard(state):
     return {"summary": "Active: 5", "details": state.items}
+```
+
+## Markdown with Table and Alert (v0.10.0+)
+
+```python
+from replkit2.textkit.markdown import markdown
+
+@app.command(
+    display="markdown",
+    truncate={"url": {"max": 50, "mode": "middle"}},
+    transforms={"size": "format_size", "time": "format_timestamp"}
+)
+def report(state):
+    # Table with truncation and transforms at display time
+    return {
+        "elements": [
+            {"type": "heading", "content": "Report"},
+            {"type": "alert", "content": "3 issues found", "level": "warning"},
+            {
+                "type": "table",
+                "headers": ["URL", "Size", "Time"],
+                "rows": state.logs,  # Full data preserved
+                # Truncation/transforms applied at render
+            },
+            {"type": "alert", "content": "Analysis complete", "level": "success"},
+        ]
+    }
+
+# Or use builder (note: list_() not list() in v0.10.0+)
+@app.command(display="markdown")
+def guide(state):
+    return (
+        markdown()
+        .heading("User Guide")
+        .alert("Breaking change in v0.10.0", level="warning")
+        .list_(["Use list_() not list()", "Tables support transforms"])
+        .build()
+    )
 ```
 
 ## Run the app

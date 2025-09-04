@@ -99,6 +99,8 @@ class App(Generic[S]):
         fastmcp: FastMCPConfig | None = None,
         typer: TyperCLI | None = None,
         strict_types: bool | None = None,
+        truncate: dict[str, dict] | None = None,
+        transforms: dict[str, str] | None = None,
         **display_opts: Any,
     ) -> Callable[[Callable], Callable] | Callable:
         """
@@ -133,7 +135,13 @@ class App(Generic[S]):
                 validate_mcp_types(f)
 
             meta = CommandMeta(
-                display=display, display_opts=display_opts, aliases=aliases or [], fastmcp=fastmcp, typer=typer
+                display=display,
+                display_opts=display_opts,
+                aliases=aliases or [],
+                fastmcp=fastmcp,
+                typer=typer,
+                truncate=truncate,
+                transforms=transforms,
             )
 
             self._commands[f.__name__] = (f, meta)

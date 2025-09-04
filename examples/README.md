@@ -63,14 +63,16 @@ Todo app with CLI, REPL, and persistent JSON state:
 Key patterns: Typer configuration, state persistence, multi-mode deployment
 
 ### markdown_demo.py - Markdown Formatter Demo
-Showcases the markdown display type:
+Showcases the markdown display type (v0.10.0+):
 - YAML frontmatter for metadata
 - Standard markdown elements (headings, code blocks, lists, etc.)
-- Custom element creation with auto-registration
-- Builder pattern for fluent document construction
-- Integration with other display types
+- **Table element** with per-column truncation and transforms
+- **Alert element** with severity levels (error, warning, info, success)
+- Custom element creation with explicit registration
+- Builder pattern with `list_()` method (renamed from `list()`)
+- Display-time formatting preserves full data
 
-Key patterns: markdown builder, custom MarkdownElement subclassing
+Key patterns: markdown builder, Table/Alert elements, truncation/transforms
 
 ### formatter_demo.py - Custom Formatter Examples
 Demonstrates advanced formatter patterns:
@@ -185,7 +187,7 @@ json_app = app.using(JSONFormatter())
 | `list` | List of strings | Bullet list |
 | `bar_chart` | Dict of numbers | Horizontal bar chart |
 | `progress` | {value, total} | Progress bar |
-| `markdown` | {elements, frontmatter} | Formatted markdown with YAML frontmatter |
+| `markdown` | {elements, frontmatter} | Formatted markdown with Table/Alert elements (v0.10.0+) |
 
 ## Configuration Options
 

@@ -83,3 +83,5 @@ class CommandMeta:
     aliases: list[str] = field(default_factory=list)
     fastmcp: FastMCPConfig | None = None  # Can be single config or list of configs
     typer: TyperCLI | None = None
+    truncate: dict[str, dict] | None = None  # Per-column truncation config
+    transforms: dict[str, str] | None = None  # Per-column transform names

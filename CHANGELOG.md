@@ -8,10 +8,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Markdown module restructured** as proper package with modular design
+  - `Table` element with per-column truncation and transforms
+  - `Alert` element for warnings/errors/info messages  
+  - Transform functions: `format_size`, `format_timestamp`, `format_number`, `format_duration`, `format_percentage`, `format_boolean`
+  - Transform registry for custom transformations
+- `truncate` and `transforms` parameters in `@app.command()` decorator
+  - Per-column truncation config: `{"URL": {"max": 60, "mode": "middle"}}`
+  - Per-column transforms: `{"Size": "format_size", "Time": "format_timestamp"}`
+  - Data remains complete, formatting happens at render time
 
 ### Changed
+- **BREAKING**: Markdown module restructured from single file to package
+  - Import path unchanged: `from replkit2.textkit.markdown import ...`
+  - `MarkdownBuilder.list()` renamed to `list_()` to avoid shadowing builtin
+  - Auto-registration removed in favor of explicit registry
+- MCP integration verified to respect `mime_type` for both tools and resources
+  - Tools and resources both format output when `mime_type="text/*"`
+  - Consistent behavior across all MCP function types
 
 ### Fixed
+- Command-level `truncate` and `transforms` now properly applied to markdown Table elements
+  - Extensible system: elements declare support via `supports_truncation` and `supports_transforms` flags
+  - Command-level settings act as defaults, element-level settings override
+  - Fixes issue where truncation in decorator was ignored for MCP markdown output
+- Union type validation now handles Python 3.10+ `|` syntax (e.g., `int | None`)
+  - Added support for `types.UnionType` created by `|` operator
+  - Proper error messages for both `Optional[T]` and `T | None` patterns
+  - Fixes AttributeError when validation encountered union types
 
 ### Removed
 
