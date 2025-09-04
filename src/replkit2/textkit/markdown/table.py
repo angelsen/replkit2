@@ -13,7 +13,7 @@ class Table(MarkdownElement):
 
     element_type = "table"
     supports_truncation = True  # This element supports truncation
-    supports_transforms = True   # This element supports transforms
+    supports_transforms = True  # This element supports transforms
 
     def __init__(
         self,

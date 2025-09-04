@@ -110,47 +110,53 @@ def _render_frontmatter(frontmatter: dict) -> str:
 
 def _apply_command_settings(element_dict: dict, element_class: Type[MarkdownElement], meta: Any) -> dict:
     """Apply command-level settings to element if it supports them.
-    
+
     Args:
         element_dict: Original element data
         element_class: Class of the element being created
         meta: Command metadata with truncate/transforms
-    
+
     Returns:
         Enriched element dict with command settings applied
     """
     # No meta, return original
     if not meta:
         return element_dict
-    
+
     # Check what this element supports and what command provides
     needs_copy = False
     enriched = element_dict
-    
+
     # Apply truncation if element supports it and doesn't have its own
-    if (element_class.supports_truncation and 
-        hasattr(meta, "truncate") and meta.truncate and 
-        "truncate" not in element_dict):
+    if (
+        element_class.supports_truncation
+        and hasattr(meta, "truncate")
+        and meta.truncate
+        and "truncate" not in element_dict
+    ):
         if not needs_copy:
             enriched = element_dict.copy()
             needs_copy = True
         enriched["truncate"] = meta.truncate
-    
+
     # Apply transforms if element supports it and doesn't have its own
-    if (element_class.supports_transforms and
-        hasattr(meta, "transforms") and meta.transforms and
-        "transforms" not in element_dict):
+    if (
+        element_class.supports_transforms
+        and hasattr(meta, "transforms")
+        and meta.transforms
+        and "transforms" not in element_dict
+    ):
         if not needs_copy:
             enriched = element_dict.copy()
             needs_copy = True
         enriched["transforms"] = meta.transforms
-    
+
     return enriched
 
 
 def _render_element(element_dict: dict, meta: Any = None) -> str:
     """Render a single markdown element using the registry.
-    
+
     Args:
         element_dict: Element data dictionary
         meta: Command metadata containing truncate/transforms (optional)

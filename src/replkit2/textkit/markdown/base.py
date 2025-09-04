@@ -9,14 +9,14 @@ class MarkdownElement(ABC):
 
     Unlike the old system, elements do NOT self-register.
     Registration is handled explicitly in __init__.py.
-    
+
     Elements can opt into features by setting class attributes:
     - supports_truncation: Element can truncate its content
     - supports_transforms: Element can apply data transformations
     """
 
     element_type: Optional[str] = None
-    
+
     # Feature support flags - elements opt-in by setting these to True
     supports_truncation: bool = False
     supports_transforms: bool = False
