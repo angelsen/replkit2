@@ -2,6 +2,7 @@
 
 from typing import Callable, TYPE_CHECKING
 import functools
+import inspect
 
 if TYPE_CHECKING:
     from typer import Typer
@@ -89,5 +90,10 @@ class CLIIntegration:
                     print(result)
 
             return result
+
+        # Create signature without state parameter (like MCP does)
+        sig = inspect.signature(func)
+        new_params = [param for name, param in sig.parameters.items() if name != "state"]
+        cli_wrapper.__signature__ = sig.replace(parameters=new_params)  # pyright: ignore[reportAttributeAccessIssue]
 
         return cli_wrapper
