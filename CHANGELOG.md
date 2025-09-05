@@ -12,6 +12,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 ### Fixed
+
+### Removed
+
+## [0.9.1] - 2025-09-05
+
+### Added
+
+### Changed
+
+### Fixed
 - CLI mode now properly hides `state` parameter from command signatures
   - Commands with `state` as first parameter no longer expose it as CLI argument
   - Fixes TypeError "got multiple values for argument 'state'" when using CLI mode
