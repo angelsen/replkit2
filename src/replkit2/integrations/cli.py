@@ -25,11 +25,14 @@ class CLIIntegration:
             except ImportError:
                 raise ImportError("Typer is required for CLI features. Install it with: pip install typer")
 
-            self.cli = Typer(
-                name=self.app.name,
-                help=f"{self.app.name} - ReplKit2 application",
-                rich_markup_mode="rich",
-            )
+            # Minimal defaults with user overrides
+            config = {
+                "name": self.app.name,
+                "help": f"{self.app.name} - ReplKit2 application",
+                **self.app.cli_config,  # User config overrides defaults
+            }
+
+            self.cli = Typer(**config)
 
             self._register_commands()
 
