@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## [0.10.0] - 2025-09-05
+
+### Added
 - Pass-through configuration for CLI integration via `cli_config` parameter
   - Allows customization of underlying Typer instance without ReplKit2 changes
   - Example: `App("myapp", State, cli_config={"add_completion": False})` to hide shell completion options
