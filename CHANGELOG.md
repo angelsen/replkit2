@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Changed
+
+### Fixed
+
+### Removed
+
+## [0.11.0] - 2025-09-05
+
+### Added
+
+### Changed
 - **BREAKING**: Renamed `cli_config` parameter to `typer_config` for consistency
   - Aligns with `fastmcp_defaults` naming pattern (library-based naming)
   - Better reflects that it configures the Typer instance (not command defaults)
