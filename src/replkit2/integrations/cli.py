@@ -29,7 +29,7 @@ class CLIIntegration:
             config = {
                 "name": self.app.name,
                 "help": f"{self.app.name} - ReplKit2 application",
-                **self.app.cli_config,  # User config overrides defaults
+                **self.app.typer_config,  # User config overrides defaults
             }
 
             self.cli = Typer(**config)

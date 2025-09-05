@@ -72,7 +72,7 @@ class App(Generic[S]):
         uri_scheme: str | None = None,
         fastmcp: FastMCPDefaults | None = None,
         state_args: dict | None = None,
-        cli_config: dict | None = None,
+        typer_config: dict | None = None,
     ):
         self.name = name
         self.state_class = state_class
@@ -83,7 +83,7 @@ class App(Generic[S]):
         self.formatter = formatter or TextFormatter()
         self.uri_scheme = uri_scheme or name
         self.fastmcp_defaults = fastmcp or {}
-        self.cli_config = cli_config or {}
+        self.typer_config = typer_config or {}
         self._commands: dict[str, tuple[Callable[..., Any], CommandMeta]] = {}
 
         self._mcp_integration: "FastMCPIntegration | None" = None
