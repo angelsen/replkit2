@@ -36,6 +36,7 @@ class FastMCPPrompt(TypedDict):
     tags: NotRequired[set[str]]
     description: NotRequired[str]
     enabled: NotRequired[bool]
+    arg_descriptions: NotRequired[dict[str, str]]
 
 
 class FastMCPDisabled(TypedDict):

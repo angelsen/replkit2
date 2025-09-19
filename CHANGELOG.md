@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 ### Fixed
+- Added missing `arg_descriptions` field to `FastMCPPrompt` TypedDict
+  - Fixes type checking errors when using the arg_descriptions feature
+  - Type definition now matches the runtime implementation
 
 ### Removed
 
