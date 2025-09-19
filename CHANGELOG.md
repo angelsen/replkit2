@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `arg_descriptions` support for MCP prompts in fastmcp configuration
+  - Allows specifying descriptions for individual prompt arguments
+  - Example: `fastmcp={"type": "prompt", "arg_descriptions": {"language": "Programming language to use"}}`
+  - Prompts with `arg_descriptions` create custom `PromptArgument` objects with descriptions
+  - Falls back to FastMCP's auto-detection when `arg_descriptions` not provided
+  - Improves discoverability and usability of prompts in MCP clients
 
 ### Changed
 

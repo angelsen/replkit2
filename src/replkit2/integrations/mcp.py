@@ -127,12 +127,44 @@ class FastMCPIntegration:
 
             wrapper = self._create_wrapper(func, meta, config)
 
-            self.server.prompt(
-                name=config.get("name", func_name),
-                description=config.get("description", func.__doc__),
-                tags=config.get("tags"),
-                enabled=config.get("enabled", True),
-            )(wrapper)
+            # Check if we have argument descriptions
+            arg_descriptions = config.get("arg_descriptions", {})
+            if arg_descriptions:
+                # Create a FunctionPrompt manually with custom argument descriptions
+                from fastmcp.prompts.prompt import FunctionPrompt, PromptArgument
+
+                # Create arguments with custom descriptions
+                arguments = []
+                sig = inspect.signature(wrapper)
+                for name, param in sig.parameters.items():
+                    arguments.append(
+                        PromptArgument(
+                            name=name,
+                            description=arg_descriptions.get(name),
+                            required=(param.default == inspect.Parameter.empty),
+                        )
+                    )
+
+                # Create FunctionPrompt directly
+                prompt = FunctionPrompt(
+                    name=config.get("name", func_name),
+                    description=config.get("description", func.__doc__),
+                    arguments=arguments,
+                    tags=config.get("tags", set()),
+                    enabled=config.get("enabled", True),
+                    fn=wrapper,
+                )
+
+                # Register the prompt with the server
+                self.server._prompt_manager.add_prompt(prompt)
+            else:
+                # Use standard FastMCP registration (auto-detects arguments from signature)
+                self.server.prompt(
+                    name=config.get("name", func_name),
+                    description=config.get("description", func.__doc__),
+                    tags=config.get("tags"),
+                    enabled=config.get("enabled", True),
+                )(wrapper)
 
     # === Resource Registration Strategies ===
 
