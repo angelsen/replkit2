@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## [0.12.0] - 2025-09-28
+
+### Added
 - Refactored MCP integration into modular package structure
   - Split monolithic 650+ line `mcp.py` into focused modules
   - New structure: `integration.py`, `tools.py`, `resources.py`, `prompts.py`, `wrappers.py`, `parameters.py`, `uri.py`
