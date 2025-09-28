@@ -189,6 +189,58 @@ def get_registered_elements() -> dict[str, Type[MarkdownElement]]:
     return _ELEMENT_REGISTRY.copy()
 
 
+def format_messages_as_markdown(messages: list[dict], meta: Any = None, formatter: Any = None) -> str:
+    """Format message list as markdown with role indicators.
+
+    Used for displaying prompt messages with system/user/assistant roles.
+
+    Args:
+        messages: List of message dicts with role and content
+        meta: Command metadata (optional)
+        formatter: Parent formatter instance (optional)
+
+    Returns:
+        Formatted markdown string with role indicators
+    """
+    sections = []
+
+    for i, msg in enumerate(messages):
+        if not isinstance(msg, dict):
+            continue
+
+        role = msg.get("role", "user")
+        content = msg.get("content", {})
+
+        # Add role indicator for multi-message or non-user messages
+        if len(messages) > 1 or role != "user":
+            sections.append(f"**[{role.upper()}]**")
+
+        # Handle different content types
+        if isinstance(content, dict):
+            if content.get("type") == "elements":
+                # Render elements directly using existing format_markdown
+                elements_dict = {"elements": content.get("elements", [])}
+                rendered = format_markdown(elements_dict, meta, formatter)
+                if rendered:
+                    sections.append(rendered)
+            elif content.get("type") == "text":
+                # Add text content
+                text = content.get("text", "")
+                if text:
+                    sections.append(text)
+            else:
+                # Unknown content type - try to render as text
+                text = content.get("text", str(content))
+                if text:
+                    sections.append(text)
+        else:
+            # Non-dict content - convert to string
+            if content:
+                sections.append(str(content))
+
+    return "\n\n".join(filter(None, sections))
+
+
 # Public API exports
 __all__ = [
     # Base class
@@ -218,6 +270,7 @@ __all__ = [
     "TRANSFORMS",
     # Functions
     "format_markdown",
+    "format_messages_as_markdown",
     "get_element_class",
     "register_element",
     "get_registered_elements",

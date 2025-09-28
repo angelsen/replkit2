@@ -13,6 +13,12 @@ class State:
 
 app = App("myapp", State)
 
+# With MCP configuration
+app = App("myapp", State, mcp_config={
+    "instructions": "My app description",
+    "uri_scheme": "custom"  # Optional, defaults to app name
+})
+
 @app.command(display="table", headers=["ID", "Name", "Status"])
 def list_items(state):
     return [{"ID": i, "Name": item["name"], "Status": item["status"]} 
@@ -55,6 +61,33 @@ def get_data(state, id: int):
 def generate(state, topic: str = "general"):
     # Prompt: template for LLMs
     return f"Write about {topic} based on: {state.items}"
+
+@app.command(display="markdown", fastmcp={"type": "prompt"})
+def advanced_prompt(state, code: str):
+    # New in v0.12.0: Rich message format with elements
+    return {
+        "messages": [
+            {
+                "role": "system",
+                "content": {
+                    "type": "elements",
+                    "elements": [
+                        {"type": "text", "content": "You are a code reviewer."}
+                    ]
+                }
+            },
+            {
+                "role": "user",
+                "content": {
+                    "type": "elements",
+                    "elements": [
+                        {"type": "heading", "content": "Code Review", "level": 2},
+                        {"type": "code_block", "content": code, "language": "python"}
+                    ]
+                }
+            }
+        ]
+    }
 ```
 
 ## Handle types correctly for MCP

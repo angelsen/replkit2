@@ -107,6 +107,11 @@ class TextFormatter(Formatter):
 
         @self.register("markdown")
         def handle_markdown(data: Any, meta: CommandMeta, formatter: "TextFormatter") -> str:  # pyright: ignore[reportUnusedFunction]
+            # Handle message format (for prompts with roles)
+            if isinstance(data, dict) and "messages" in data:
+                from .markdown import format_messages_as_markdown
+
+                return format_messages_as_markdown(data["messages"], meta, formatter)
             # Pass data through to the markdown formatter
             if isinstance(data, dict):
                 return format_markdown(data, meta, formatter)

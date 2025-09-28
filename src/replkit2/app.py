@@ -3,8 +3,7 @@
 from typing import Any, Callable, TYPE_CHECKING, Generic, TypeVar
 import inspect
 
-from .formatters import Formatter
-from .types.core import CommandMeta, FastMCPConfig, FastMCPDefaults, TyperCLI
+from .types.core import CommandMeta, FastMCPConfig, TyperCLI
 from .textkit import TextFormatter, compose, hr, align
 from .validation import validate_mcp_types
 
@@ -68,10 +67,9 @@ class App(Generic[S]):
         self,
         name: str,
         state_class: type[S] | None = None,
-        formatter: Formatter | None = None,
-        uri_scheme: str | None = None,
-        fastmcp: FastMCPDefaults | None = None,
+        *,
         state_args: dict | None = None,
+        mcp_config: dict | None = None,
         typer_config: dict | None = None,
     ):
         self.name = name
@@ -80,15 +78,19 @@ class App(Generic[S]):
             self.state = state_class(**state_args) if state_args else state_class()
         else:
             self.state = None
-        self.formatter = formatter or TextFormatter()
-        self.uri_scheme = uri_scheme or name
-        self.fastmcp_defaults = fastmcp or {}
-        self.typer_config = typer_config or {}
-        self._commands: dict[str, tuple[Callable[..., Any], CommandMeta]] = {}
 
+        # Extract MCP configuration
+        mcp_config = mcp_config or {}
+        self.uri_scheme = mcp_config.pop("uri_scheme", name)  # ReplKit2 feature, default to name
+        self.mcp_config = mcp_config  # Remaining config for FastMCP server
+
+        # Fixed internals
+        self.formatter = TextFormatter()
+        self.typer_config = typer_config or {}
+
+        self._commands: dict[str, tuple[Callable[..., Any], CommandMeta]] = {}
         self._mcp_integration: "FastMCPIntegration | None" = None
         self._mcp_components = {"tools": {}, "resources": {}, "prompts": {}}
-
         self._cli_integration: "CLIIntegration | None" = None
         self._cli_commands: dict[str, tuple[Callable[..., Any], CommandMeta]] = {}
 
@@ -241,19 +243,9 @@ class App(Generic[S]):
             help_wrapper.__doc__ = "Show available commands."
             namespace["help"] = help_wrapper
 
-    def using(self, formatter: Formatter) -> "App[S]":
-        """Create a new App instance using a different formatter."""
-        new_app = App(
-            self.name,
-            self.state_class,
-            formatter,
-            self.uri_scheme,
-            self.fastmcp_defaults,
-        )
-        new_app.state = self.state
-        new_app._commands = self._commands
-        new_app._mcp_components = self._mcp_components
-        return new_app
+    # Method removed - formatter is now internal
+    # Future: API integration will handle JSON/web formatting
+    # Example: app.api for FastAPI integration (like app.mcp and app.cli)
 
     def run(self, title: str | None = None, banner: str | None = None):
         """Run the REPL application interactively."""

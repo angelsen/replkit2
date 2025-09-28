@@ -8,12 +8,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Refactored MCP integration into modular package structure
+  - Split monolithic 650+ line `mcp.py` into focused modules
+  - New structure: `integration.py`, `tools.py`, `resources.py`, `prompts.py`, `wrappers.py`, `parameters.py`, `uri.py`
+  - Each module has single responsibility (50-200 lines each)
+  - Improved testability and maintainability
+- Support for rich message format in MCP prompts
+  - Commands can return `{"messages": [...]}` with system/user/assistant roles
+  - New `content.type = "elements"` allows embedding markdown elements in messages
+  - Elements are rendered to markdown for MCP, displayed nicely in REPL
+  - Backward compatible: strings and element dicts still work as before
+  - Example: `examples/assistant_demo.py` demonstrates the new format
 
 ### Changed
+- **BREAKING**: Replaced `fastmcp` parameter with `mcp_config` in App initialization
+  - Old: `App("name", State, fastmcp={"description": "...", "tags": {...}})`
+  - New: `App("name", State, mcp_config={"instructions": "...", "tags": {...}})`
+  - Groups all MCP-related configuration in one place
+  - `uri_scheme` now part of `mcp_config` (still defaults to app name)
+- **BREAKING**: Removed `formatter` parameter from App initialization
+  - App now always uses `TextFormatter()` internally
+  - Display formatting still controlled by command-level `display` parameter
+- **BREAKING**: Renamed server description field to match FastMCP native naming
+  - Use `"instructions"` instead of `"description"` in `mcp_config`
+  - Aligns with native FastMCP server parameter names
 
 ### Fixed
+- Fixed bug where global `fastmcp_defaults` would override individual command docstrings
+  - Commands now properly use their docstrings as descriptions
+  - Server-level configuration no longer affects component-level descriptions
+  - Each tool/resource/prompt maintains independent configuration
 
 ### Removed
+- Removed `fastmcp_defaults` functionality entirely
+  - Eliminated confusing global defaults that could override component settings
+  - Server configuration now explicit via `mcp_config`
+- Removed `using()` method from App class
+  - Formatter is now internal and not configurable
+  - Future API/JSON integration will handle alternative output formats
 
 ## [0.11.2] - 2025-09-19
 

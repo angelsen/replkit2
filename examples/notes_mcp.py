@@ -58,7 +58,7 @@ class NotesState:
 
 
 # Create app with state class
-app = App("notes", NotesState, uri_scheme="notes")
+app = App("notes", NotesState, mcp_config={"uri_scheme": "notes"})
 
 # Create state handler
 app.state = NotesState()
