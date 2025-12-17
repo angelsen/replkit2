@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## [0.13.0] - 2025-12-17
+
+### Added
 - **ExecutionContext** for mode-aware commands
   - Add `_ctx: ExecutionContext = None` to detect execution mode
   - Mode detection: `is_repl()`, `is_mcp()`, `is_cli()`, `is_programmatic()`
