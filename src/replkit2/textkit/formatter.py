@@ -11,14 +11,31 @@ from .markdown import format_markdown
 
 
 class TextFormatter(Formatter):
-    """Extensible text formatter with decorator-based handler registration."""
+    """Extensible text formatter with decorator-based handler registration.
+
+    Handlers are pure presentation layer - they receive data, metadata, and
+    formatter instance to produce formatted output. Commands handle any
+    context-aware logic before passing data to formatters.
+    """
 
     def __init__(self):
         self._handlers: dict[str, Callable[[Any, CommandMeta, "TextFormatter"], str]] = {}
         self._register_defaults()
 
     def register(self, display_type: str):
-        """Decorator to register a display handler."""
+        """Decorator to register a display handler.
+
+        Registered handlers should accept:
+        - data: Any - The data to format
+        - meta: CommandMeta - Command metadata with display options
+        - formatter: TextFormatter - The formatter instance
+
+        Args:
+            display_type: Display type identifier (e.g., "table", "markdown")
+
+        Returns:
+            Decorator function for handler registration
+        """
 
         def decorator(func: Callable[[Any, CommandMeta, "TextFormatter"], str]):
             self._handlers[display_type] = func
@@ -28,7 +45,15 @@ class TextFormatter(Formatter):
 
     @override
     def format(self, data: Any, meta: CommandMeta) -> str:
-        """Convert data to text using registered handlers."""
+        """Convert data to text using registered handlers.
+
+        Args:
+            data: Data to format
+            meta: Command metadata with display configuration
+
+        Returns:
+            Formatted text representation
+        """
         if not meta.display:
             return str(data)
 
@@ -49,10 +74,15 @@ class TextFormatter(Formatter):
             if isinstance(data, list) and data and isinstance(data[0], dict):
                 if not headers:
                     headers = list(data[0].keys())
-                # Case-insensitive header matching: find first key that matches case-insensitively
-                rows = [
-                    [next((v for k, v in row.items() if k.lower() == h.lower()), "") for h in headers] for row in data
-                ]
+                # Case-insensitive header matching - build mapping once per row for O(n×m) instead of O(n×m×k)
+                # First, create lowercase header lookup
+                header_lower = [h.lower() for h in headers]
+                rows = []
+                for row in data:
+                    # Build lowercase key mapping once per row
+                    row_lower = {k.lower(): v for k, v in row.items()}
+                    # Look up each header efficiently
+                    rows.append([row_lower.get(h_lower, "") for h_lower in header_lower])
                 return table(rows, headers)
 
             # Handle list of lists

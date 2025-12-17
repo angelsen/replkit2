@@ -1,5 +1,9 @@
 #!/usr/bin/env python
-"""Notes app demonstrating ReplKit2 with MCP integration and persistence."""
+"""Notes app with MCP integration.
+
+Demonstrates: MCP tools/resources/prompts, persistence, markdown display,
+message format, ExecutionContext.
+"""
 
 import sys
 import json
@@ -9,6 +13,7 @@ from datetime import datetime
 from typing import List
 from contextlib import contextmanager
 from replkit2 import App
+from replkit2.types import ExecutionContext
 
 
 @dataclass
@@ -16,6 +21,19 @@ class NotesState:
     """Pure JSON-based state - reads/writes on each operation."""
 
     _file_path: Path = field(default_factory=lambda: Path.cwd() / ".notes.json")
+
+    def __post_init__(self):
+        """Validate file path stays within intended directory."""
+        try:
+            resolved_path = self._file_path.resolve()
+            cwd = Path.cwd().resolve()
+            # Ensure path is within current working directory
+            resolved_path.relative_to(cwd)
+        except ValueError:
+            raise ValueError(
+                f"Invalid file path: {self._file_path} is outside current directory. "
+                f"For security, notes file must be within {cwd}"
+            )
 
     def read(self) -> dict:
         """Read current state from JSON file."""
@@ -167,6 +185,49 @@ def search(state, query: str, tags: List[str] = None):
     return {"query": query, "tags": tags, "results": results, "count": len(results)}
 
 
+@app.command(
+    display="table",
+    headers=["ID", "Title", "Tags", "Created"],
+    fastmcp={"type": "tool"}
+)
+def recent(state, limit: int = None, _ctx: ExecutionContext = None):
+    """Show recent notes with context-aware defaults.
+
+    Args:
+        limit: Max notes to show (default: 5 for REPL, 20 for MCP/CLI)
+        _ctx: Execution context (auto-injected by framework)
+
+    Example of context-aware behavior:
+    - REPL mode: Shows 5 recent notes (compact for terminal)
+    - MCP mode: Shows 20 recent notes (full data for LLM)
+    - User can always override with explicit limit parameter
+    """
+    # Smart defaults based on execution mode
+    if limit is None:
+        # REPL: compact output for human viewing
+        # MCP: more complete data for LLM analysis
+        limit = 5 if _ctx and _ctx.is_repl() else 20
+
+    data = state.read()
+    notes = data["notes"]
+
+    if not notes:
+        return []
+
+    # Sort by created date (newest first) and apply limit
+    sorted_notes = sorted(notes, key=lambda n: n.get("created", ""), reverse=True)[:limit]
+
+    return [
+        {
+            "ID": str(n["id"]),
+            "Title": n["title"],
+            "Tags": ", ".join(n.get("tags", [])),
+            "Created": n["created"][:10]
+        }
+        for n in sorted_notes
+    ]
+
+
 @app.command(display="box", fastmcp={"type": "tool"})
 def delete(state, id: int):
     """Delete a note by ID with explicit save."""
@@ -290,6 +351,46 @@ def stats(state):
     recent = sum(1 for n in notes if n.get("created", "")[:10] == datetime.now().isoformat()[:10])
 
     return f"Total: {total} notes\nTags: {tag_count} unique\nToday: {recent} notes"
+
+
+@app.command(display="markdown", fastmcp={"type": "prompt"})
+def review(state, topic: str):
+    """Review notes - demonstrates MCP message format with elements content."""
+    data = state.read()
+    matching = [n for n in data["notes"] if topic.lower() in n["title"].lower()][:3]
+
+    return {
+        "messages": [
+            {"role": "system", "content": {"type": "elements", "elements": [
+                {"type": "text", "content": "You are reviewing notes."}
+            ]}},
+            {"role": "user", "content": {"type": "elements", "elements": [
+                {"type": "heading", "content": f"Notes about '{topic}'"},
+                {"type": "table", "headers": ["ID", "Title", "Tags"],
+                 "rows": [{"ID": str(n["id"]), "Title": n["title"],
+                          "Tags": ", ".join(n.get("tags", []))} for n in matching]},
+                {"type": "alert", "content": f"Found {len(matching)} matching notes", "level": "info"}
+            ]}}
+        ]
+    }
+
+
+@app.command(display="markdown")
+def report(state, tag: str = None):
+    """Generate note report - demonstrates frontmatter and markdown builder."""
+    from replkit2.textkit import markdown
+
+    data = state.read()
+    notes = [n for n in data["notes"] if not tag or tag in n.get("tags", [])]
+
+    return (markdown()
+        .frontmatter(title="Notes Report", tag=tag or "all", generated=True)
+        .heading("Summary")
+        .text(f"Found {len(notes)} notes" + (f" with tag '{tag}'" if tag else ""))
+        .table(headers=["ID", "Title", "Created"],
+               rows=[{"ID": str(n["id"]), "Title": n["title"],
+                      "Created": n["created"][:10]} for n in notes[:5]])
+        .build())
 
 
 if __name__ == "__main__":

@@ -170,8 +170,11 @@ def _render_element(element_dict: dict, meta: Any = None) -> str:
             enriched_dict = _apply_command_settings(element_dict, element_class, meta)
             element = element_class.from_dict(enriched_dict)
             return element.render()
-        except Exception:
-            # If rendering fails, return empty string
+        except (ImportError, AttributeError, KeyError, ValueError, TypeError) as e:
+            # Log rendering failures for debugging
+            import warnings
+
+            warnings.warn(f"Failed to render markdown element '{element_type}': {e}", RuntimeWarning, stacklevel=2)
             return ""
 
     # Unknown element type - ignore silently

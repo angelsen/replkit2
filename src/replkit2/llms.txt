@@ -63,31 +63,17 @@ def generate(state, topic: str = "general"):
     return f"Write about {topic} based on: {state.items}"
 
 @app.command(display="markdown", fastmcp={"type": "prompt"})
-def advanced_prompt(state, code: str):
-    # New in v0.12.0: Rich message format with elements
-    return {
-        "messages": [
-            {
-                "role": "system",
-                "content": {
-                    "type": "elements",
-                    "elements": [
-                        {"type": "text", "content": "You are a code reviewer."}
-                    ]
-                }
-            },
-            {
-                "role": "user",
-                "content": {
-                    "type": "elements",
-                    "elements": [
-                        {"type": "heading", "content": "Code Review", "level": 2},
-                        {"type": "code_block", "content": code, "language": "python"}
-                    ]
-                }
-            }
-        ]
-    }
+def review(state, code: str):
+    # Rich message format with elements
+    return {"messages": [
+        {"role": "system", "content": {"type": "elements", "elements": [
+            {"type": "text", "content": "You are a code reviewer."}
+        ]}},
+        {"role": "user", "content": {"type": "elements", "elements": [
+            {"type": "heading", "content": "Review"},
+            {"type": "code_block", "content": code, "language": "python"}
+        ]}}
+    ]}
 ```
 
 ## Handle types correctly for MCP
@@ -142,6 +128,49 @@ def debug(state):
     return vars(state)
 ```
 
+## Programmatic usage (APIs, web frameworks)
+
+```python
+# Access state directly
+state = app.state
+
+# Execute commands and get raw data
+result = app.execute("add_item", "Task", status="active")
+stats = app.execute("list_items")
+
+# Use with FastAPI
+from fastapi import FastAPI
+api = FastAPI()
+
+@api.get("/items")
+def get_items():
+    return app.state.items  # Direct state access
+
+@api.post("/items")
+def create_item(name: str):
+    app.execute("add_item", name)  # Command execution
+    return app.state.items[-1]
+```
+
+## Context-aware commands
+
+Commands can detect execution mode and adapt behavior. Add `_ctx: ExecutionContext = None` parameter:
+
+```python
+from replkit2.types import ExecutionContext
+
+@app.command(display="table", fastmcp={"type": "tool"})
+def preview(state, file: str, limit: int = None, _ctx: ExecutionContext = None):
+    if limit is None:
+        limit = 5 if _ctx and _ctx.is_repl() else None  # Compact for REPL, full for MCP/CLI
+    return load_data(state, file)[:limit] if limit else load_data(state, file)
+```
+
+**Mode detection:** `_ctx.is_repl()`, `_ctx.is_mcp()`, `_ctx.is_cli()`, `_ctx.is_programmatic()`
+**Use for:** Large datasets, different output structures per mode, interactive vs batch behavior
+
+See docs/migration-0.13.md for complete patterns and migration guide.
+
 ## Custom display
 
 ```python
@@ -158,42 +187,36 @@ def dashboard(state):
     return {"summary": "Active: 5", "details": state.items}
 ```
 
-## Markdown with Table and Alert (v0.9.0+)
+## Markdown with Table and Alert
 
 ```python
 from replkit2.textkit.markdown import markdown
 
-@app.command(
-    display="markdown",
-    truncate={"url": {"max": 50, "mode": "middle"}},
-    transforms={"size": "format_size", "time": "format_timestamp"}
-)
+@app.command(display="markdown")
 def report(state):
-    # Table with truncation and transforms at display time
+    return (markdown()
+        .frontmatter(title="Report", generated=True)
+        .heading("Summary")
+        .alert("3 issues found", level="warning")
+        .table(headers=["URL", "Size"], rows=state.logs)
+        .list_(["Item 1", "Item 2"])  # Use list_() not list()
+        .build())
+
+# Element-level truncate/transforms (recommended)
+@app.command(display="markdown")
+def report_truncated(state):
     return {
         "elements": [
-            {"type": "heading", "content": "Report"},
-            {"type": "alert", "content": "3 issues found", "level": "warning"},
-            {
-                "type": "table",
-                "headers": ["URL", "Size", "Time"],
-                "rows": state.logs,  # Full data preserved
-                # Truncation/transforms applied at render
-            },
-            {"type": "alert", "content": "Analysis complete", "level": "success"},
+            {"type": "table",
+             "headers": ["URL", "Size"],
+             "rows": state.logs,
+             "truncate": {"URL": {"max": 50, "mode": "middle"}},
+             "transforms": {"Size": "format_size"}}
         ]
     }
 
-# Or use builder (note: list_() not list() in v0.9.0+)
-@app.command(display="markdown")
-def guide(state):
-    return (
-        markdown()
-        .heading("User Guide")
-        .alert("Breaking change in v0.9.0", level="warning")
-        .list_(["Use list_() not list()", "Tables support transforms"])
-        .build()
-    )
+# NOTE: Decorator-level truncate= and transforms= are DEPRECATED (removed in v0.14)
+# Use element-level configuration or command-level with _ctx instead
 ```
 
 ## Run the app

@@ -8,12 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **ExecutionContext** for mode-aware commands
+  - Add `_ctx: ExecutionContext = None` to detect execution mode
+  - Mode detection: `is_repl()`, `is_mcp()`, `is_cli()`, `is_programmatic()`
+  - Factory methods: `ExecutionContext.for_repl()`, `for_mcp()`, `for_cli()`, `for_programmatic()`
+- New examples: `dataset.py` (context patterns), `tasks.py` (CLI + MCP)
+- `docs/integrations.md` - consolidated deployment guide
 
 ### Changed
+- **Deprecated**: Decorator-level `truncate=` and `transforms=` (FutureWarning, removed in v0.14)
+- Renamed `examples/notes_mcp.py` → `notes.py`
+- Consolidated docs: migration guide merged into integrations.md
 
 ### Fixed
 
 ### Removed
+- Redundant examples: `assistant_demo.py`, `formatter_demo.py`, `markdown_demo.py`, `typer_demo.py`
+- `textkit/markdown/PLAN.md` (completed implementation plan)
 
 ## [0.12.0] - 2025-09-28
 

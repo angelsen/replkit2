@@ -4,10 +4,11 @@ Flask-style framework for building stateful REPL applications with rich display,
 
 ## ✨ Features
 
-- 🚀 **Multi-mode**: REPL, CLI, MCP server from one codebase
+- 🚀 **Multi-mode**: REPL, CLI, MCP server, API integration from one codebase
 - 🎨 **Rich display**: Tables, trees, boxes, charts, markdown
 - 🔌 **MCP ready**: Tools, resources, prompts for Claude/LLMs
 - ⚡ **CLI support**: Traditional command-line interface via Typer
+- 🌐 **API integration**: Programmatic access for FastAPI, Flask, etc.
 - 🎯 **Type safe**: Full type hints, MCP-compatible validation
 
 ## 📦 Installation
@@ -159,6 +160,45 @@ def list_tasks(state, done: bool = False, limit: int = 10):
 # python todo.py --cli done 1
 ```
 
+## 🌐 Multi-Mode Deployment
+
+Write once, deploy everywhere - REPL, CLI, MCP server, or programmatic API:
+
+```python
+if __name__ == "__main__":
+    import sys
+    if "--mcp" in sys.argv:
+        app.mcp.run()           # MCP server for Claude/LLMs
+    elif "--cli" in sys.argv:
+        app.cli()               # Traditional CLI
+    else:
+        app.run(title="My App") # Interactive REPL
+```
+
+**Integration properties:** `app.mcp` (MCP server), `app.cli` (CLI), `app.state` (direct access), `app.execute()` (programmatic)
+
+See [`docs/integrations.md`](docs/integrations.md) for complete integration patterns and web framework examples.
+
+## 🎭 Context-Aware Commands
+
+Commands can detect execution mode (REPL, MCP, CLI, programmatic) and adapt behavior accordingly:
+
+```python
+from replkit2.types import ExecutionContext
+
+@app.command(display="table", fastmcp={"type": "tool"})
+def preview(state, file: str, limit: int = None, _ctx: ExecutionContext = None):
+    """Preview with smart defaults based on execution mode."""
+    if limit is None:
+        limit = 5 if _ctx and _ctx.is_repl() else None  # Compact for REPL, full for MCP/CLI
+    return load_file(state, file)[:limit] if limit else load_file(state, file)
+```
+
+**When to use:** Commands with large datasets or different output needs per mode.
+**Key features:** Opt-in, auto-injected, backward compatible, user override.
+
+See [`docs/integrations.md`](docs/integrations.md) for complete guide.
+
 ## 🎯 Type Safety
 
 ```python
@@ -183,24 +223,26 @@ def cmd(state,
 ## 📁 Examples
 
 - **[`todo.py`](examples/todo.py)** - Full task manager with persistence
-- **[`notes_mcp.py`](examples/notes_mcp.py)** - MCP server with all types
+- **[`notes.py`](examples/notes.py)** - Note-taking with MCP integration
+- **[`dataset.py`](examples/dataset.py)** - Context-aware commands
 - **[`monitor.py`](examples/monitor.py)** - System monitoring dashboard
-- **[`typer_demo.py`](examples/typer_demo.py)** - CLI with JSON state
-- **[`markdown_demo.py`](examples/markdown_demo.py)** - Markdown rendering
+- **[`tasks.py`](examples/tasks.py)** - CLI with JSON state
+- **[`todo_api.py`](examples/todo_api.py)** - FastAPI integration
 
 Run examples:
 ```bash
 cd examples
 python todo.py                  # REPL mode
-python notes_mcp.py --mcp        # MCP server
-python typer_demo.py --cli --help  # CLI help
+python dataset.py               # Context-aware demo
+python notes.py --mcp           # MCP server
+python tasks.py --cli --help    # CLI help
 ```
 
 ## 📚 Documentation
 
 - [CHANGELOG.md](CHANGELOG.md) - Version history
-- [ROADMAP.md](ROADMAP.md) - Future plans  
-- [CLAUDE.md](CLAUDE.md) - Development guide
+- [ROADMAP.md](ROADMAP.md) - Future plans
+- [docs/integrations.md](docs/integrations.md) - Multi-mode deployment guide
 - [src/replkit2/llms.txt](src/replkit2/llms.txt) - LLM quick reference
 
 ## 🛠️ Development

@@ -64,35 +64,49 @@ print(progress(75, 100, width=50, label="Processing"))
 
 ## ReplKit2 Integration
 
-TextKit is the default formatter for ReplKit2:
+TextKit powers ReplKit2's default text formatter. Commands return data structures,
+and the formatter automatically converts them to ASCII displays:
 
 ```python
 from replkit2 import App
 
-# TextFormatter is used automatically
 app = App("myapp", MyState)
 
+# Formatter handles dict-to-table conversion automatically
 @app.command(display="table", headers=["ID", "Name"])
 def list_items(state):
-    return [{"ID": 1, "Name": "Item"}]
+    return [{"ID": 1, "Name": "Item"}]  # Returns list[dict]
+
+# For programmatic use (APIs, web frameworks), use execute()
+result = app.execute("list_items")  # Returns raw data (list[dict])
 ```
 
+For direct textkit usage in custom formatters, see [`docs/textkit-architecture.md`](../../docs/textkit-architecture.md).
+
 ## Custom Display Handlers
+
+Formatters receive `(data, meta, formatter)` and are **pure** - they only control presentation, not data selection.
 
 ```python
 # Register custom display type
 @app.formatter.register("custom")
 def handle_custom(data, meta, formatter):
+    """Custom display handlers receive data, meta, formatter.
+
+    Note: Formatters do NOT receive ExecutionContext (v0.13.0+).
+    Commands control data selection (context-aware), formatters control
+    presentation (mode-agnostic). This maintains clean separation of concerns.
+    """
     from replkit2.textkit import box, compose
     from replkit2.types.core import CommandMeta
-    
+
     # Can reuse formatter for nested data transformation
     if isinstance(data["content"], list):
         content_meta = CommandMeta(display="list")
         content = formatter.format(data["content"], content_meta)
     else:
         content = data["content"]
-    
+
     return compose(
         box(data["title"], title="Custom"),
         content
@@ -102,6 +116,8 @@ def handle_custom(data, meta, formatter):
 def custom_view(state):
     return {"title": "Hello", "content": "World"}
 ```
+
+**Design principle (v0.13.0+):** Commands handle context-aware logic (what data to return), formatters stay pure (how to display it). For context-aware commands, see `examples/dataset.py`.
 
 ## Configuration
 

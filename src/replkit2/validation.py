@@ -4,9 +4,13 @@ This module ensures command parameters use types that translate cleanly to MCP's
 avoiding 'unknown' parameter types that confuse MCP clients.
 """
 
-from typing import Any, Callable, get_origin, get_args, Union, Literal
+from typing import Any, Callable, get_origin, get_args, Union, Literal, TYPE_CHECKING
 import inspect
 import types
+import warnings
+
+if TYPE_CHECKING:
+    from .types.core import FastMCPSingleConfig, CommandMeta
 
 
 # Types that work correctly in MCP schemas
@@ -14,7 +18,7 @@ PRIMITIVE_TYPES = {str, int, float, bool, list, dict, type(None)}
 ALLOWED_ORIGINS = {list, dict, Literal}
 
 
-def validate_mcp_types(func: Callable) -> None:
+def validate_mcp_types(func: Callable, config: "FastMCPSingleConfig | None" = None) -> None:
     """Validate function parameters for MCP compatibility.
 
     Ensures:
@@ -22,9 +26,11 @@ def validate_mcp_types(func: Callable) -> None:
     - No Optional[T] or Union[T, U] types (causes 'unknown' in MCP)
     - Primitives and properly nested generics are allowed
     - Clear, actionable error messages
+    - _ctx parameter follows correct pattern (if present)
 
     Args:
         func: Function to validate
+        config: Optional MCP config (FastMCPTool/Resource/Prompt) - currently unused but kept for API compatibility
 
     Raises:
         TypeError: If parameters use types incompatible with MCP
@@ -32,7 +38,8 @@ def validate_mcp_types(func: Callable) -> None:
     sig = inspect.signature(func)
 
     for param_name, param in sig.parameters.items():
-        if param_name == "state":  # Skip state parameter
+        # Skip special parameters
+        if param_name in ("state", "_ctx"):
             continue
 
         annotation = param.annotation
@@ -49,6 +56,10 @@ def validate_mcp_types(func: Callable) -> None:
         if not is_valid_mcp_type(annotation):
             error_msg = get_type_error_message(func.__name__, param_name, annotation)
             raise TypeError(error_msg)
+
+    # Validate _ctx parameter if present
+    if "_ctx" in sig.parameters:
+        validate_context_parameter(func)
 
 
 def is_valid_mcp_type(annotation: Any) -> bool:
@@ -259,6 +270,120 @@ def validate_mcp_resource_params(func: Callable) -> None:
                     )
 
 
+def validate_context_parameter(func: Callable) -> None:
+    """Validate _ctx parameter follows ExecutionContext pattern.
+
+    Ensures:
+    - _ctx parameter has ExecutionContext type annotation (or ExecutionContext | None)
+    - _ctx parameter defaults to None
+    - _ctx parameter follows naming convention
+
+    Args:
+        func: Function to validate
+
+    Raises:
+        TypeError: If _ctx parameter is misconfigured
+
+    Example:
+        Valid patterns:
+        - def cmd(state, _ctx: ExecutionContext = None): ...
+        - def cmd(state, _ctx: ExecutionContext | None = None): ...
+
+        Invalid patterns:
+        - def cmd(state, _ctx): ...  # Missing type
+        - def cmd(state, _ctx: ExecutionContext): ...  # Missing default
+        - def cmd(state, ctx: ExecutionContext = None): ...  # Wrong name
+    """
+    sig = inspect.signature(func)
+
+    if "_ctx" not in sig.parameters:
+        return  # No context parameter, nothing to validate
+
+    param = sig.parameters["_ctx"]
+
+    # Check default value
+    if param.default is not None and param.default != inspect.Parameter.empty:
+        raise TypeError(
+            f"Function '{func.__name__}': _ctx parameter must default to None.\n"
+            f"Current default: {param.default}\n"
+            f"Correct pattern: _ctx: ExecutionContext = None"
+        )
+
+    # Check type annotation
+    if param.annotation == inspect.Parameter.empty:
+        raise TypeError(
+            f"Function '{func.__name__}': _ctx parameter must have ExecutionContext type annotation.\n"
+            f"Add type annotation: _ctx: ExecutionContext = None"
+        )
+
+    # Check annotation includes ExecutionContext
+    # We check the string representation for flexibility with Union types
+    annotation_str = str(param.annotation)
+    if "ExecutionContext" not in annotation_str:
+        raise TypeError(
+            f"Function '{func.__name__}': _ctx must be typed as ExecutionContext or ExecutionContext | None.\n"
+            f"Current type: {annotation_str}\n"
+            f"Correct pattern: _ctx: ExecutionContext = None"
+        )
+
+
+def check_decorator_formatting_deprecation(func: Callable, meta: "CommandMeta") -> None:
+    """Warn about decorator-level truncate/transforms (mode-agnostic).
+
+    These parameters apply uniform formatting across REPL and MCP modes,
+    preventing optimal use of mime_type with mode-specific data.
+
+    Args:
+        func: Function being registered
+        meta: CommandMeta with truncate/transforms configuration
+
+    Example:
+        Deprecated pattern (triggers warning):
+        @app.command(truncate={"col": {"max": 50}})
+        def search(state, query: str):
+            return results  # Same truncation in REPL and MCP
+
+        Recommended pattern (no warning):
+        @app.command(display="markdown")
+        def search(state, query: str, _ctx: ExecutionContext = None):
+            truncate = {"col": {"max": 50}} if _ctx.is_repl() else {"col": {"max": 500}}
+            return {"elements": [{"type": "table", "truncate": truncate, ...}]}
+    """
+    issues = []
+    if meta.truncate:
+        issues.append("truncate")
+    if meta.transforms:
+        issues.append("transforms")
+
+    if not issues:
+        return
+
+    params_str = ", ".join(issues)
+
+    warnings.warn(
+        f"\nCommand '{func.__name__}' uses decorator-level {params_str} parameter(s).\n"
+        f"These apply the same formatting in REPL and MCP modes.\n"
+        f"\n"
+        f"Recommended: Move to command logic with _ctx for mode-specific behavior:\n"
+        f"\n"
+        f'  @app.command(display="markdown")\n'
+        f"  def {func.__name__}(state, _ctx: ExecutionContext = None):\n"
+        f"      if _ctx and _ctx.is_repl():\n"
+        f"          truncate = {{'col': {{'max': 50}}}}\n"
+        f"          rows = [format_for_humans(r) for r in data]\n"
+        f"      else:\n"
+        f"          truncate = {{'col': {{'max': 500}}}}\n"
+        f"          rows = data  # Raw values for LLM\n"
+        f"      \n"
+        f"      return {{'elements': [{{'type': 'table', 'truncate': truncate, 'rows': rows}}]}}\n"
+        f"\n"
+        f'This enables both modes to use mime_type="text/markdown" with appropriate data.\n'
+        f"Decorator-level {params_str} will be removed in v0.14.",
+        FutureWarning,
+        stacklevel=5,  # Points to @app.command() decorator in user code
+    )
+
+
 def check_function_compatibility(func: Callable) -> dict[str, Any]:
     """Check a function's MCP compatibility and return detailed report.
 
@@ -274,7 +399,7 @@ def check_function_compatibility(func: Callable) -> dict[str, Any]:
     report = {"function": func.__name__, "is_compatible": True, "parameters": {}}
 
     for param_name, param in sig.parameters.items():
-        if param_name == "state":
+        if param_name in ("state", "_ctx"):  # Skip special parameters
             continue
 
         param_info = {

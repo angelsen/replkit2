@@ -4,59 +4,86 @@
 
 This document outlines potential future features and enhancements for ReplKit2. Items are not commitments but rather ideas under consideration. Community feedback is welcome via GitHub issues.
 
-## Current Release - MCP Tool Aliases (Phase 1) ✅
+## Current Release - ExecutionContext ✅
+
+### Completed in v0.13.0
+Context-aware commands with mode detection and decorator parameter deprecation warnings.
+
+**ExecutionContext features:**
+- Commands can detect execution mode (REPL, MCP, CLI, programmatic)
+- Opt-in via `_ctx: ExecutionContext = None` parameter
+- Mode detection: `_ctx.is_repl()`, `_ctx.is_mcp()`, `_ctx.is_cli()`, `_ctx.is_programmatic()`
+- Factory methods: `ExecutionContext.for_repl()`, `for_mcp()`, `for_cli()`, `for_programmatic()`, `for_test()`
+- 100% backward compatible - commands without `_ctx` work unchanged
+
+**Decorator-level parameter deprecation:**
+- Decorator-level `truncate=` and `transforms=` parameters now deprecated
+- FutureWarning issued at registration for affected commands
+- Migration path: Use element-level `truncate`/`transforms` with `_ctx` for mode-aware formatting
+- Note: `mime_type` is NOT deprecated - it's valid and recommended with `_ctx`
+
+**Internal improvements:**
+- Added `ExecutionContext.for_test()` factory method
+- Replaced manual cache with `@lru_cache(maxsize=256)`
+- Extracted MCP context creation helper
+- Fixed 2 pre-existing bugs in resources.py
+
+**Benefits:**
+- Commands adapt behavior for different execution contexts
+- Better UX: compact output for REPL, full data for MCP/CLI
+- Explicit control over mode-specific formatting with `_ctx`
+- Testable with explicit context passing
+
+## Previous Release - Integration Architecture ✅
+
+### Completed in v0.12.0
+Multi-mode deployment with integration properties and programmatic access.
+
+**Integration properties:**
+- `app.mcp` - FastMCP server for LLM tools/resources/prompts
+- `app.cli` - Typer CLI for traditional command-line interface
+- `app.state` - Direct state access for API integrations
+- `app.execute()` - Programmatic command execution
+
+**Breaking changes:**
+- Removed `using()` method
+- Formatters now internal (TextFormatter only)
+- Simplified API surface for clarity
+
+**Benefits:**
+- Write once, deploy as REPL/CLI/MCP/API
+- Clear, explicit patterns for each mode
+- Foundation for framework integrations
+- No magic - users control their deployment
+
+## MCP Tool Aliases ✅
 
 ### Completed in v0.7.3
 Semantic aliases for MCP tools with parameter remapping support.
 
-```python
-@app.command(fastmcp={
-    "type": "tool",
-    "aliases": [
-        {"name": "write", "description": "Write message", "param_mapping": {"command": "message"}},
-        "exec",  # Simple alias
-    ]
-})
-def execute(state, command: str): ...
-```
-
-### Benefits
-- Natural language aliases for LLM interactions
-- Parameter name remapping for semantic clarity
-- Custom descriptions per alias
-- Backward compatible
-
-## Next Minor Version - FastAPI First-Class Support
+## Future Enhancement - FastAPI Helpers
 
 ### Goal
-Enable ReplKit2 commands to automatically become API endpoints, similar to the existing FastMCP and Typer integrations.
+Provide optional convenience helpers for FastAPI integration (not automatic routing).
 
-### Foundation Complete ✅
-As of v0.6.0, the integration architecture provides a solid foundation for adding FastAPI support alongside existing MCP and CLI integrations.
+### Current State ✅
+FastAPI integration works via `app.execute()` and `app.state`. Users have full control over routing and responses. See [`examples/todo_api.py`](examples/todo_api.py) and [`docs/integrations.md`](docs/integrations.md).
 
-### Proposed API
+### Potential Helpers
 ```python
-@app.command(
-    display="table",
-    api={"method": "GET", "path": "/tasks", "response_model": TaskList}
-)
-def list_tasks(state, status: str = None):
-    return [t for t in state.tasks if not status or t["status"] == status]
+# Optional convenience wrapper (future)
+from replkit2.integrations.fastapi import create_router
 
-# Integration
-fastapi_app.include_router(app.api(), prefix="/replkit")
+router = create_router(app, prefix="/api/todo")
+fastapi_app.include_router(router)
 ```
 
-### Benefits
-- Write once, deploy as REPL/CLI/MCP/API
-- Automatic OpenAPI documentation
-- Type-safe request/response handling
-- Seamless integration with existing FastAPI projects
-
 ### Considerations
-- Should we support Flask too via `app.flask_api()`?
-- How to handle authentication/authorization?
-- Response model generation from return types?
+- Should be optional (separate module/extra)
+- Don't hide the web framework from users
+- Focus on reducing boilerplate, not magic
+- Support other frameworks (Flask, Django)?
+- Community feedback needed on desired patterns
 
 ## Future Release - Plugin System
 
@@ -64,7 +91,7 @@ fastapi_app.include_router(app.api(), prefix="/replkit")
 Allow third-party extensions without modifying core.
 
 ### Foundation Complete ✅
-As of v0.6.0, the integration architecture provides the foundation for a plugin system with separate `FastMCPIntegration` and `CLIIntegration` classes.
+The integration architecture provides the foundation for a plugin system with separate `FastMCPIntegration` and `CLIIntegration` classes.
 
 ### Ideas
 - Plugin discovery via entry points
@@ -190,4 +217,4 @@ No fixed timeline. Features will be implemented based on:
 
 ---
 
-*Last updated: 2025-08-10*
+*Last updated: 2025-11-03*

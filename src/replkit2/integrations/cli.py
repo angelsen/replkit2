@@ -4,6 +4,9 @@ from typing import Callable, TYPE_CHECKING
 import functools
 import inspect
 
+from ..types.context import ExecutionContext
+from ..utils import accepts_context, inject_context
+
 if TYPE_CHECKING:
     from typer import Typer
     from ..app import App
@@ -74,10 +77,17 @@ class CLIIntegration:
         self.cli.command(**command_args)(wrapper)
 
     def _create_wrapper(self, func: Callable, meta: "CommandMeta") -> Callable:
-        """Create wrapper that handles state injection and output formatting for CLI."""
+        """Create wrapper that handles state injection, context injection, and output formatting for CLI."""
 
         @functools.wraps(func)
         def cli_wrapper(*args, **kwargs):
+            # Create execution context for CLI mode
+            context = ExecutionContext.for_cli()
+
+            # Inject context if function accepts it
+            if accepts_context(func):
+                kwargs = inject_context(kwargs, context)
+
             # Inject state if needed
             if self.app.state is not None:
                 result = func(self.app.state, *args, **kwargs)
@@ -94,9 +104,9 @@ class CLIIntegration:
 
             return result
 
-        # Create signature without state parameter (like MCP does)
+        # Create signature without state and _ctx parameters
         sig = inspect.signature(func)
-        new_params = [param for name, param in sig.parameters.items() if name != "state"]
+        new_params = [param for name, param in sig.parameters.items() if name not in ("state", "_ctx")]
         cli_wrapper.__signature__ = sig.replace(parameters=new_params)  # pyright: ignore[reportAttributeAccessIssue]
 
         return cli_wrapper

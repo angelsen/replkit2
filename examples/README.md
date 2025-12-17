@@ -11,14 +11,14 @@ uv add replkit2
 # Run examples
 uv run python examples/todo.py
 uv run python examples/monitor.py
-uv run python examples/notes_mcp.py
+uv run python examples/notes.py
 
 # Run with MCP server
-uv run python examples/notes_mcp.py --mcp
+uv run python examples/notes.py --mcp
 
 # Run as CLI
-uv run python examples/typer_demo.py add "Buy milk"
-uv run python examples/typer_demo.py list
+uv run python examples/tasks.py add "Buy milk"
+uv run python examples/tasks.py list
 ```
 
 ## Core Examples
@@ -43,54 +43,55 @@ Real-time system monitoring dashboard:
 
 Key patterns: external data integration, real-time updates, report formatter
 
-### notes_mcp.py - FastMCP Integration Demo
-Note-taking app exposing MCP tools, resources, and prompts:
-- Tools: `add_note`, `list_notes`
-- Resources: `note_summary`, `get_note/{id}` 
-- Prompts: `brainstorm_prompt`
+### notes.py - Note-Taking with MCP Integration
+Note-taking app with MCP tools, resources, prompts, and markdown display:
+- Tools: `add`, `list`, `delete`, `update`
+- Resources: `get`, `search` (URI patterns)
+- Prompts: `summarize`, `review` (with message format)
+- Context-aware `recent` command
+- Markdown display with frontmatter and builder pattern
 - Dual-mode: REPL or MCP server
 
-Key patterns: FastMCP configuration, URI templates, typed configs
+Key patterns: MCP configuration, ExecutionContext, markdown display, message format
 
-### typer_demo.py - Typer CLI Integration Demo
-Todo app with CLI, REPL, and persistent JSON state:
+### dataset.py - Context-Aware Commands
+Comprehensive demonstration of ExecutionContext:
+- Mode detection: REPL, MCP, CLI, programmatic
+- Context-aware defaults with user override
+- Different data structures per execution mode
+- Backward compatibility (commands without context)
+- Transport type and metadata inspection
+
+Key patterns: ExecutionContext usage, adaptive behavior, mode detection
+
+### tasks.py - CLI with Persistent State
+Task manager with CLI and JSON persistence:
 - Typer CLI mode with traditional command-line interface
 - Commands work in both REPL and CLI modes
 - JSON persistence in `examples/data/todo-cli-state.json`
-- Custom command names and help text via `typer` parameter
-- Shows the "write once, deploy everywhere" pattern
+- Custom command names via `typer` parameter
+- Multi-mode deployment pattern
 
 Key patterns: Typer configuration, state persistence, multi-mode deployment
-
-### markdown_demo.py - Markdown Formatter Demo
-Showcases the markdown display type (v0.9.0+):
-- YAML frontmatter for metadata
-- Standard markdown elements (headings, code blocks, lists, etc.)
-- **Table element** with per-column truncation and transforms
-- **Alert element** with severity levels (error, warning, info, success)
-- Custom element creation with explicit registration
-- Builder pattern with `list_()` method (renamed from `list()`)
-- Display-time formatting preserves full data
-
-Key patterns: markdown builder, Table/Alert elements, truncation/transforms
-
-### formatter_demo.py - Custom Formatter Examples
-Demonstrates advanced formatter patterns:
-- Dashboard display with multiple sections
-- Formatter composition for nested data
-- Direct textkit vs formatter comparison
-- Reusable custom display types
-
-Key patterns: formatter parameter usage, display composition
 
 ### todo_api.py - REST API Integration
 Same todo app exposed as FastAPI:
 - Shared state between REPL and API
-- JSON formatting for API responses
+- Direct command execution via `app.execute()`
+- Programmatic state access pattern
 - Swagger UI at `/docs`
-- Demonstrates `app.using(JSONFormatter())`
 
 Run: `uv run --extra api uvicorn examples.todo_api:app`
+
+## Archived Examples
+
+The `_archive/` directory contains examples that have been consolidated into core examples:
+
+- **assistant.py** - MCP message format with elements content (→ notes.py: `review` command)
+- **dashboard.py** - Custom formatter delegation patterns (→ todo.py: `handle_report` formatter)
+- **report.py** - Markdown display features (→ notes.py: `report` and `review` commands)
+
+These remain as reference for advanced patterns and comprehensive feature demonstrations.
 
 ## Command Patterns
 
@@ -126,6 +127,21 @@ def add_task(state, text: str):
 def list_tasks(state, done: bool = False):
     tasks = [t for t in state.tasks if not done or t.done]
     return [{"ID": t.id, "Task": t.text} for t in tasks]
+```
+
+### Context-Aware Command
+```python
+from replkit2.types import ExecutionContext
+
+@app.command(display="table", fastmcp={"type": "tool"})
+def preview(state, limit: int = None, _ctx: ExecutionContext = None):
+    """Preview data with context-aware defaults."""
+    # Smart defaults based on execution mode
+    if limit is None:
+        limit = 5 if _ctx and _ctx.is_repl() else None  # Full for MCP/CLI
+
+    data = get_data(state)
+    return data[:limit] if limit else data
 ```
 
 ### Custom Formatter
@@ -168,14 +184,31 @@ app.mcp.run()
 - Compatible with Claude Desktop, Continue, etc.
 - Stateful between calls
 
-### API Mode
+### Programmatic Usage (APIs, Web Frameworks)
 ```python
-json_app = app.using(JSONFormatter())
-# Use with FastAPI/Flask/etc
+from replkit2.types import ExecutionContext
+
+# Access state directly
+state = app.state
+
+# Execute commands and get raw data
+result = app.execute("add", "Buy milk")
+stats = app.execute("stats")
+
+# Pass explicit context
+ctx = ExecutionContext.for_programmatic()
+result = app.execute("preview", _ctx=ctx)
+
+# Use with FastAPI
+@api.post("/todos")
+def create_todo(todo: TodoCreate):
+    app.execute("add", todo.task, todo.priority)
+    return state.todos[-1]
 ```
-- Same commands, JSON output
-- RESTful endpoints
-- Shared state with REPL
+- Commands return raw data structures
+- Direct state access for reads
+- Optional ExecutionContext for context-aware commands
+- Ideal for REST APIs and web frameworks
 
 ## Display Types
 
@@ -187,7 +220,7 @@ json_app = app.using(JSONFormatter())
 | `list` | List of strings | Bullet list |
 | `bar_chart` | Dict of numbers | Horizontal bar chart |
 | `progress` | {value, total} | Progress bar |
-| `markdown` | {elements, frontmatter} | Formatted markdown with Table/Alert elements (v0.9.0+) |
+| `markdown` | {elements, frontmatter} | Formatted markdown with Table/Alert elements |
 
 ## Configuration Options
 

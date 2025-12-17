@@ -1,22 +1,12 @@
 #!/usr/bin/env python3
-"""
-Typer CLI Integration Demo
+"""Task manager with CLI and persistent state.
 
-This example demonstrates how ReplKit2 commands work across three modes:
-- REPL: Interactive mode with formatted output
-- CLI: Command-line interface via Typer
-- MCP: Model Context Protocol server
+Demonstrates: Typer CLI integration, multi-mode deployment, JSON persistence.
 
-Run as REPL:
-    uv run python examples/typer_demo.py
-
-Run as CLI:
-    uv run --extra cli python examples/typer_demo.py --cli list-tasks
-    uv run --extra cli python examples/typer_demo.py --cli add "New task"
-    uv run --extra cli python examples/typer_demo.py --cli done 1
-
-Run as MCP server:
-    uv run --extra mcp python examples/typer_demo.py --mcp
+Run modes:
+    python examples/tasks.py                    # REPL mode
+    python examples/tasks.py --cli list-tasks   # CLI mode
+    python examples/tasks.py --mcp              # MCP server
 """
 
 from dataclasses import dataclass, field
@@ -37,6 +27,17 @@ class TodoState:
         """Load state from JSON on initialization."""
         # Store in examples/data/ relative to this script
         self._state_file = Path(__file__).parent / "data" / "todo-cli-state.json"
+
+        # Validate path stays within examples directory for security
+        try:
+            script_dir = Path(__file__).parent.resolve()
+            resolved_file = self._state_file.resolve()
+            resolved_file.relative_to(script_dir)
+        except ValueError:
+            raise ValueError(
+                f"Invalid state file path: {self._state_file} is outside examples directory"
+            )
+
         self._state_file.parent.mkdir(exist_ok=True)  # Ensure directory exists
 
         if self._state_file.exists():

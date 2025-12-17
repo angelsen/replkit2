@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING
 
 from .wrappers import create_wrapper, create_mapped_wrapper
+from .utils import extract_config
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
@@ -18,7 +19,7 @@ def register_tools(server: "FastMCP", app: "App"):
 def _register_single_tool(server: "FastMCP", app: "App", key, item):
     """Register a single tool with aliases."""
     # Extract configuration
-    func, meta, config = _extract_config(item, app)
+    func, meta, config = extract_config(item, app)
 
     # Extract function name from key (might be tuple)
     func_name = key if isinstance(key, str) else key[0]
@@ -92,15 +93,3 @@ def _register_tool_alias(server: "FastMCP", app: "App", func, meta, config, alia
 
     # Register the alias
     server.tool(**tool_kwargs)(wrapper)
-
-
-def _extract_config(item, app):
-    """Extract func, meta, and config from component item."""
-    # Handle both old (func, meta) and new (func, meta, config) formats
-    if len(item) == 3:
-        func, meta, config = item
-    else:
-        func, meta = item
-        config = meta.fastmcp
-
-    return func, meta, config

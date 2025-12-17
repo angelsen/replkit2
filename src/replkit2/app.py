@@ -4,8 +4,10 @@ from typing import Any, Callable, TYPE_CHECKING, Generic, TypeVar
 import inspect
 
 from .types.core import CommandMeta, FastMCPConfig, TyperCLI
+from .types.context import ExecutionContext
 from .textkit import TextFormatter, compose, hr, align
 from .validation import validate_mcp_types
+from .utils import accepts_context, inject_context
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
@@ -136,7 +138,13 @@ class App(Generic[S]):
                 should_validate = any(cfg.get("enabled", True) for cfg in configs) if configs else False
 
             if should_validate:
-                validate_mcp_types(f)
+                # Validate with each config to check for deprecation warnings
+                for config in configs:
+                    # Skip disabled configs (FastMCPDisabled has enabled=False)
+                    if not config.get("enabled", True):
+                        continue
+                    # Validate MCP type compatibility
+                    validate_mcp_types(f, config)
 
             meta = CommandMeta(
                 display=display,
@@ -147,6 +155,12 @@ class App(Generic[S]):
                 truncate=truncate,
                 transforms=transforms,
             )
+
+            # Check for deprecated decorator-level formatting
+            if truncate or transforms:
+                from .validation import check_decorator_formatting_deprecation
+
+                check_decorator_formatting_deprecation(f, meta)
 
             self._commands[f.__name__] = (f, meta)
 
@@ -173,12 +187,34 @@ class App(Generic[S]):
         else:
             return decorator(func)
 
-    def execute(self, command_name: str, *args, **kwargs) -> Any:
-        """Execute a command and return raw result."""
+    def execute(self, command_name: str, *args, _ctx: ExecutionContext | None = None, **kwargs) -> Any:
+        """Execute a command programmatically and return raw result.
+
+        Args:
+            command_name: Name of the command to execute
+            *args: Positional arguments for the command
+            _ctx: Optional execution context (created if None)
+            **kwargs: Keyword arguments for the command
+
+        Returns:
+            Command result (unformatted)
+
+        Example:
+            >>> result = app.execute("my_command", param1="value")
+            >>> result = app.execute("my_command", _ctx=ExecutionContext.for_test())
+        """
         if command_name not in self._commands:
             raise ValueError(f"Unknown command: {command_name}")
 
         func, meta = self._commands[command_name]
+
+        # Create context if not provided
+        if _ctx is None:
+            _ctx = ExecutionContext.for_programmatic()
+
+        # Inject context if function accepts it
+        if accepts_context(func):
+            kwargs = inject_context(kwargs, _ctx)
 
         # Check if function expects state parameter
         sig = inspect.signature(func)
@@ -212,6 +248,14 @@ class App(Generic[S]):
 
             def make_wrapper(cmd_name: str) -> Callable[..., Any]:
                 def wrapper(*args, **kwargs):
+                    # Create execution context for REPL mode
+                    context = ExecutionContext.for_repl()
+
+                    # Inject context if function accepts it
+                    cmd_func, _ = self._commands[cmd_name]
+                    if accepts_context(cmd_func):
+                        kwargs = inject_context(kwargs, context)
+
                     result = self.execute(cmd_name, *args, **kwargs)
                     _, meta = self._commands[cmd_name]
                     formatted = self.formatter.format(result, meta)

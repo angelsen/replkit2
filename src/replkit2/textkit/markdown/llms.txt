@@ -16,20 +16,47 @@ def show_report(state):
     }
 ```
 
-## Command-Level Truncation
+## Truncation and Transforms
 
+**DEPRECATED:** Decorator-level `truncate=` and `transforms=` will be removed in v0.14.
+
+**Recommended - Element-level configuration:**
 ```python
-@app.command(
-    display="markdown",
-    truncate={"URL": {"max": 50, "mode": "middle"}},  # Applied to all tables
-    transforms={"Size": "format_size"}                 # Bytes → human readable
-)
+@app.command(display="markdown")
 def list_pages(state):
     return {
         "elements": [
             {"type": "table",
              "headers": ["URL", "Size"],
-             "rows": state.pages}  # Full data, truncated at display
+             "rows": state.pages,
+             "truncate": {"URL": {"max": 50, "mode": "middle"}},
+             "transforms": {"Size": "format_size"}}
+        ]
+    }
+```
+
+**Mode-specific formatting with context:**
+```python
+from replkit2.types import ExecutionContext
+
+@app.command(display="markdown", fastmcp={"type": "tool", "mime_type": "text/markdown"})
+def list_pages(state, _ctx: ExecutionContext = None):
+    if _ctx and _ctx.is_repl():
+        # REPL: Tight truncation, human transforms
+        truncate = {"URL": {"max": 50, "mode": "middle"}}
+        transforms = {"Size": "format_size"}
+    else:
+        # MCP: Generous truncation, raw values
+        truncate = {"URL": {"max": 500, "mode": "middle"}}
+        transforms = {}
+
+    return {
+        "elements": [
+            {"type": "table",
+             "headers": ["URL", "Size"],
+             "rows": state.pages,
+             "truncate": truncate,
+             "transforms": transforms}
         ]
     }
 ```
@@ -118,7 +145,8 @@ class MyElement(MarkdownElement):
 
 ## Key Points
 
-- Command-level settings are defaults for all supporting elements
-- Element-level settings override command defaults
+- **Element-level** truncate/transforms are recommended (not decorator-level)
+- Element-level settings allow per-table/per-element configuration
 - Full data preserved, truncation happens at render time
-- Works with MCP when `mime_type="text/markdown"`
+- Using `mime_type="text/markdown"` with _ctx is valid and recommended for mode-specific rendering
+- Decorator-level `truncate=` and `transforms=` are DEPRECATED (removed in v0.14)

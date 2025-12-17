@@ -8,10 +8,10 @@ class ParameterAnalyzer:
     """Analyze function parameters for MCP registration strategies."""
 
     def is_all_optional(self, func: Callable) -> bool:
-        """Check if all function parameters (except state) are optional."""
+        """Check if all function parameters (except state and _ctx) are optional."""
         sig = inspect.signature(func)
         for name, param in sig.parameters.items():
-            if name == "state":  # Skip state parameter
+            if name in ("state", "_ctx"):  # Skip state and _ctx parameters
                 continue
             if param.default == inspect.Parameter.empty:  # No default = required
                 return False
@@ -21,28 +21,28 @@ class ParameterAnalyzer:
         """Check if function has any optional parameters."""
         sig = inspect.signature(func)
         for name, param in sig.parameters.items():
-            if name == "state":  # Skip state parameter
+            if name in ("state", "_ctx"):  # Skip state and _ctx parameters
                 continue
             if param.default != inspect.Parameter.empty:  # Has default = optional
                 return True
         return False
 
     def get_required_parameters(self, func: Callable) -> list[inspect.Parameter]:
-        """Get list of required parameters (excluding state)."""
+        """Get list of required parameters (excluding state and _ctx)."""
         sig = inspect.signature(func)
         return [
             param
             for name, param in sig.parameters.items()
-            if name != "state" and param.default == inspect.Parameter.empty
+            if name not in ("state", "_ctx") and param.default == inspect.Parameter.empty
         ]
 
     def get_optional_parameters(self, func: Callable) -> list[inspect.Parameter]:
-        """Get list of optional parameters (excluding state)."""
+        """Get list of optional parameters (excluding state and _ctx)."""
         sig = inspect.signature(func)
         return [
             param
             for name, param in sig.parameters.items()
-            if name != "state" and param.default != inspect.Parameter.empty
+            if name not in ("state", "_ctx") and param.default != inspect.Parameter.empty
         ]
 
 
@@ -143,9 +143,9 @@ class SignatureBuilder:
 
     @staticmethod
     def without_state(func: Callable) -> inspect.Signature:
-        """Create signature without state parameter."""
+        """Create signature without state and _ctx parameters."""
         sig = inspect.signature(func)
-        new_params = [param for name, param in sig.parameters.items() if name != "state"]
+        new_params = [param for name, param in sig.parameters.items() if name not in ("state", "_ctx")]
         return sig.replace(parameters=new_params)
 
     @staticmethod
@@ -154,13 +154,33 @@ class SignatureBuilder:
         sig = inspect.signature(func)
         new_params = []
 
-        # Add all parameters except state (both required and optional)
+        # Add all parameters except state and _ctx (both required and optional)
         for name, param in sig.parameters.items():
-            if name != "state":
+            if name not in ("state", "_ctx"):
                 new_params.append(param)
 
         # Add greedy params parameter for capturing remaining URI segments
         params_param = inspect.Parameter("params", inspect.Parameter.POSITIONAL_OR_KEYWORD, default="", annotation=str)
         new_params.append(params_param)
 
+        return sig.replace(parameters=new_params)
+
+    @staticmethod
+    def with_filtered_args(func: Callable, allowed_args: list[str]) -> inspect.Signature:
+        """Create signature with only specified parameters.
+
+        Filters to only parameters in allowed_args list.
+        Always excludes 'state' and '_ctx'.
+
+        Args:
+            func: Function to extract signature from
+            allowed_args: List of parameter names to include
+
+        Returns:
+            Filtered signature with only allowed parameters
+        """
+        sig = inspect.signature(func)
+        new_params = [
+            param for name, param in sig.parameters.items() if name not in ("state", "_ctx") and name in allowed_args
+        ]
         return sig.replace(parameters=new_params)

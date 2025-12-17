@@ -4,7 +4,8 @@ from typing import TYPE_CHECKING, Callable
 
 from .parameters import ParameterAnalyzer, parse_greedy_params
 from .uri import URIBuilder
-from .wrappers import create_wrapper, create_greedy_wrapper, call_with_formatting
+from .wrappers import create_wrapper, create_greedy_wrapper, call_with_formatting, _create_mcp_context
+from .utils import extract_config
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
@@ -26,7 +27,7 @@ def _register_single_resource(
 ):
     """Select and apply appropriate registration strategy."""
     # Extract configuration
-    func, meta, config = _extract_config(item, app)
+    func, meta, config = extract_config(item, app)
 
     # Validate resource parameters follow URI constraints
     from ...validation import validate_mcp_resource_params
@@ -116,7 +117,8 @@ def _register_all_optional(
 
     # 1. Base Resource (no parameters - all defaults)
     def base_wrapper():
-        return call_with_formatting(app, func, {}, meta, config)
+        context = _create_mcp_context(config)
+        return call_with_formatting(app, func, {}, meta, config, context)
 
     base_wrapper.__name__ = f"{name}_base"
     base_wrapper.__doc__ = f"{func.__doc__} (with all defaults)"
@@ -135,7 +137,8 @@ def _register_all_optional(
 
     def template_wrapper(params: str = ""):
         kwargs = parse_greedy_params(func, params)
-        return call_with_formatting(app, func, kwargs, meta, config)
+        context = _create_mcp_context(config)
+        return call_with_formatting(app, func, kwargs, meta, config, context)
 
     template_wrapper.__name__ = f"{name}_template"
     template_wrapper.__doc__ = f"{func.__doc__} (with parameters)"
@@ -181,15 +184,3 @@ def _register_stub(server: "FastMCP", func: Callable, uri_template: str, stub_co
         name=f"{func.__name__}_example",
         description=f"Example usage for {func.__name__}",
     )(stub_func)
-
-
-def _extract_config(item, app):
-    """Extract func, meta, and config from component item."""
-    # Handle both old (func, meta) and new (func, meta, config) formats
-    if len(item) == 3:
-        func, meta, config = item
-    else:
-        func, meta = item
-        config = meta.fastmcp
-
-    return func, meta, config

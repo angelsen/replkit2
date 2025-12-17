@@ -18,9 +18,12 @@ bugs/
 tasks/
 .context-search.json
 _archive/
+handlers.md
+specs/
+_summaries/
 
 # Example data files
 examples/data/
 
 # Claude Code memory (personal preferences)
-CLAUDE.mdhandlers.md
+CLAUDE.md
