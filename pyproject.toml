@@ -19,7 +19,7 @@ Repository = "https://github.com/angelsen/replkit2"
 Issues = "https://github.com/angelsen/replkit2/issues"
 
 [project.optional-dependencies]
-mcp = ["fastmcp>=2.9.2"]
+mcp = ["fastmcp>=2.9.2,<3"]
 cli = ["typer>=0.16.0"]
 examples = ["fastapi>=0.116.1", "psutil>=7.0.0", "uvicorn>=0.35.0"]
 all = ["replkit2[mcp]", "replkit2[cli]"]

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 ### Changed
+- Capped `fastmcp` dependency to `<3` to prevent breaking changes from future major versions
 
 ### Fixed
 
